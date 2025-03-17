@@ -8,37 +8,43 @@ FFLAGS = -Wall
 SRC_DIR = src
 BIN_DIR = bin
 
-# Arquivos fonte
-SOURCES = $(wildcard $(SRC_DIR)/*.f90)
+# Busca recursiva por arquivos .f90, cuidando de espaços
+SOURCES = $(shell find "$(SRC_DIR)" -name '*.f90')
 
-# Gerar lista de executáveis removendo a extensão
-TARGETS = $(patsubst $(SRC_DIR)/%.f90, $(BIN_DIR)/%, $(SOURCES))
+# Cria os nomes dos binários, pegando só o nome base
+TARGETS = $(patsubst %.f90, $(BIN_DIR)/%, $(notdir $(SOURCES)))
 
-# Alvo padrão: compila tudo e roda o binário mais recente
+# Alvo padrão: compila tudo e executa o último
 all: ensure_dirs $(TARGETS)
 	@echo "Executando o binário mais recente..."
 	@LAST_SRC=$$(ls -t $(SOURCES) | head -n1); \
-	PROG_NAME=$$(basename $$LAST_SRC .f90); \
+	PROG_NAME=$$(basename "$$LAST_SRC" .f90); \
 	EXEC_FILE="$(BIN_DIR)/$$PROG_NAME"; \
-	if [ -x $$EXEC_FILE ]; then \
+	if [ -x "$$EXEC_FILE" ]; then \
 	  echo ">>> Rodando $$EXEC_FILE..."; \
-	  $$EXEC_FILE; \
+	  "$$EXEC_FILE"; \
 	else \
 	  echo "Executável não encontrado: $$EXEC_FILE"; \
 	fi
 
 # Compila cada arquivo fonte para a pasta bin
-$(BIN_DIR)/%: $(SRC_DIR)/%.f90
-	$(FC) $(FFLAGS) -o $@ $<
+$(BIN_DIR)/%:
+	@SRC_FILE=$$(find "$(SRC_DIR)" -name "$*.f90"); \
+	if [ -z "$$SRC_FILE" ]; then \
+	  echo "Erro: Não foi encontrado o arquivo para $@"; \
+	  exit 1; \
+	fi; \
+	echo "Compilando $$SRC_FILE -> $@"; \
+	$(FC) $(FFLAGS) -o "$@" "$$SRC_FILE"
 
 # Cria as pastas se não existirem
 ensure_dirs:
-	@mkdir -p $(SRC_DIR)
-	@mkdir -p $(BIN_DIR)
+	@mkdir -p "$(SRC_DIR)"
+	@mkdir -p "$(BIN_DIR)"
 
 # Limpa binários
 clean:
-	rm -f $(BIN_DIR)/*
+	rm -f "$(BIN_DIR)"/*
 
 # Ajuda
 help:
