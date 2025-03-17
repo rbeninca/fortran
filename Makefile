@@ -15,7 +15,7 @@ SOURCES = $(shell find "$(SRC_DIR)" -name '*.f90')
 TARGETS = $(patsubst %.f90, $(BIN_DIR)/%, $(notdir $(SOURCES)))
 
 # Alvo padrão: compila tudo e executa o último
-all: ensure_dirs $(TARGETS)
+all:  clean ensure_dirs $(TARGETS)
 	@echo "Executando o binário mais recente..."
 	@LAST_SRC=$$(ls -t $(SOURCES) | head -n1); \
 	PROG_NAME=$$(basename "$$LAST_SRC" .f90); \
