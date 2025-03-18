@@ -31,6 +31,6 @@ WRITE (*,'(A,I0)') "AN = A1 + (N–1)*D=", AN
 !e) calcular o valor (inteiro) da soma de todos os termos da P.A., denotado por SN, com a seguinte expressão:
 !a formula correta é (SN = (A1 + AN) * N / 2)   e não  SN = (A1 + AN) * D / 2
 SN = (A1+AN)* N/2
-WRITE (*,'(A,I0)') "SN = (A1+AN)*D/2=", SN
+WRITE (*,'(A,I0)') "SN = (A1+AN)*N/2=", SN
 
 END PROGRAM exercicio_2_7 
