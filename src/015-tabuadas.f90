@@ -19,20 +19,10 @@ PROGRAM tabuadas_screen_ajust
     INTEGER FUNCTION get_num_cols()
         !VARS
         INTEGER num_col
-#ifdef _WIN32
-            CALL EXECUTE_COMMAND_LINE("mode con | findstr Columns > temp_cols.txt", WAIT=.TRUE.)
-#else
-            CALL EXECUTE_COMMAND_LINE("tput cols > temp_cols.txt", WAIT=.TRUE.)
-#endif
+        CALL EXECUTE_COMMAND_LINE("tput cols > temp_cols.txt", WAIT=.TRUE.)
         OPEN (10,FILE="temp_cols.txt",STATUS='OLD', ACTION='READWRITE')!"SCRATCH"
-#ifdef _WIN32
-            READ (10,'(A)') linha_arquivo
-            READ (linha_arquivo,'(A,I5)') num_col
-#else
-            READ (10,'(I5)') num_col
-#endif
+        READ (10,'(I5)') num_col
         CLOSE(UNIT=10,STATUS='DELETE')  
-        !PRINT  *, numero_colunas
         get_num_cols=num_col
     END FUNCTION get_num_cols
     INTEGER FUNCTION get_comprimento( n)

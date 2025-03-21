@@ -2,7 +2,7 @@
 FC = gfortran
 
 # Flags de compilação
-FFLAGS = -Wall
+FFLAGS =  -Wall -cpp
 
 # Diretórios
 SRC_DIR = src

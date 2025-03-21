@@ -1,0 +1,45 @@
+# Estudo de Fortran
+a
+Este repositório contém materiais e exemplos de código relacionados ao estudo da linguagem de programação Fortran, baseados nas aulas do professor Carlos Marchi da UFPR sobre fortran.
+
+## 
+ Fotran foi cra
+Criada em 1954 por  Fortran (Formula Translation) é uma linguagem de programação de alto nível voltada para cálculos numéricos e científicos. Foi desenvolvida na década de 1950 e continua sendo amplamente utilizada em áreas como engenharia, física e matemática.
+
+## Conteúdo
+
+- **Exemplos de Código**: Exemplos práticos de programas em Fortran para ilustrar conceitos e técnicas.
+- **Tutoriais**: Guias passo a passo para aprender os fundamentos da linguagem.
+- **Recursos Adicionais**: Links para documentação, livros e outros materiais de estudo.
+
+## Requisitos
+
+Para compilar e executar os exemplos de código, você precisará de um compilador Fortran. Algumas opções populares incluem:
+
+- GNU Fortran (gfortran)
+- Intel Fortran Compiler (ifort)
+- NAG Fortran Compiler
+
+## Como Usar
+
+1. Clone o repositório:
+    ```
+    git clone <URL-do-repositório>
+    ```
+2. Navegue até o diretório do projeto:
+    ```
+    cd <diretório-do-projeto>
+    ```
+3. Compile e execute os exemplos de código conforme as instruções fornecidas em cada arquivo.
+
+## Contribuições
+
+Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou enviar pull requests com melhorias, correções ou novos exemplos de código.
+
+## Licença
+
+Este projeto está licenciado sob a MIT License. Veja o arquivo LICENSE para mais detalhes.
+
+## Contato
+
+Para dúvidas ou sugestões, entre em contato pelo email: rbeninca@gmail.com
