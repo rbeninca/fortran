@@ -1,0 +1,1 @@
+HELLOHELLO na mesma linha\n

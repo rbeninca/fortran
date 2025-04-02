@@ -10,6 +10,7 @@ program dataatual
     minuto=valores_datahora(6)
     segundo=valores_datahora(7)
     ms=valores_datahora(8)
-    write (*,'(A,I2,A,I2.2,A,I4,A,I2,A,I2,A,I2,A,I3.3)') "Times: ",dia, "/", mes , "/" , ano , "--" , hora , ":", minuto, ":", segundo, ":", ms
+    write (*,'(A,I2,A,I2.2,A,I4,A,I2,A,I2,A,I2,A,I3.3)') "Times: ",dia, "/",&
+     mes , "/" , ano , "--" , hora , ":", minuto, ":", segundo, ":", ms
 
 end program dataatual

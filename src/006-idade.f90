@@ -12,7 +12,9 @@ program calcula_idade
     CALL DATE_AND_TIME(values=data_atual)
     idade = data_atual(1) - data_nascimento(3)
 
-    IF  ( (data_nascimento(2) > data_atual(2)) .or.( (data_nascimento(2) == data_atual(2)) .and. (data_nascimento(1) > data_atual(3)) ) ) THEN
+    IF  ( (data_nascimento(2) > data_atual(2)) .or.&
+    ( (data_nascimento(2) == data_atual(2)) .and. & 
+    (data_nascimento(1) > data_atual(3)) ) ) THEN
         idade = idade - 1
     ELSE IF (data_nascimento(2) == data_atual(2)) THEN
         IF (data_nascimento(1) > data_atual(1)) THEN
