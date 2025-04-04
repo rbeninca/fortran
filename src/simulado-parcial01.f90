@@ -67,9 +67,9 @@ WRITE(10, '(A, ES12.4)') 'k4 = ', k4
 WRITE(10, '(A, ES12.4)') 'k5 = ', k5
 WRITE(10, '(A, ES12.4)') 'k6 = ', k6
 WRITE(10, '(A, ES12.4)') 'k7 = ', k7
-WRITE(10, '(A)') 'p = ', p
-WRITE(10, '(A)') 'q = ', q
-WRITE(10, '(A)') 'r = ', r
+WRITE(10, '(A,A)') 'p = ', p
+WRITE(10, '(A,A)') 'q = ', q
+WRITE(10, '(A,A)') 'r = ', r
 
 
 END PROGRAM parcial01

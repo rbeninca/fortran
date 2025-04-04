@@ -1,6 +1,6 @@
  AVALIACAO 1 - FORTRAN
  Nome: ROMULO DE AGUIAR BENINCA
-Data: 2025/4/4 0:3:50
+Data: 2025/4/4 0:3:51
  Valores lidos:
 b1 =  -2.0000E+00
 b2 =   4.0000E+00
@@ -13,9 +13,6 @@ k4 =   8.6418E+00
 k5 =   2.0000E+00
 k6 =   0.0000E+00
 k7 =  -2.1475E+09
-p = 
-Romulo                                            
-q = 
-Beninca                                           
-r = 
-Programação II -Romulo Beninca                  
+p = Romulo                                            
+q = Beninca                                           
+r = Programação II -Romulo Beninca                  
