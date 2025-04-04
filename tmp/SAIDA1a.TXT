@@ -1,3 +1,6 @@
+ AVALIACAO 1 - FORTRAN
+ Nome: ROMULO DE AGUIAR BENINCA
+Data: 2025/4/4 0:2:38
  Valores lidos:
  A =            3
  B =           10
