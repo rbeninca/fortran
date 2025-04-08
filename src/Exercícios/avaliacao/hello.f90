@@ -1,6 +1,6 @@
 !programa imprime hello
 program hello
   implicit none
-  print *, "Hello, World!"
+  write(*,*) "Hello, World!"
 end program hello
 ! Execução: ./hello
