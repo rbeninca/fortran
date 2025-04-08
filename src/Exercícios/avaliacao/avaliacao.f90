@@ -6,7 +6,7 @@ PROGRAM prova1
   CHARACTER(LEN=50) :: Aluno
   CHARACTER(LEN=50) :: Dia
   INTEGER :: L1, L2, L3
-  REAL :: M1, M2
+  REAL :: M1, M2, M3
 
 
   ! 2) Criar arquivo de saída
@@ -38,6 +38,10 @@ PROGRAM prova1
   ! 6) M2 = (10 + L2^L3) / 777
   M2 = (10.0 + REAL(L2)**REAL(L3)) / 777.0
   WRITE(10,'(A,1X,ES13.3E2)') 'M2 =', M2
+
+  ! 7) M3 = exp(L1)/(7-L2) + L3
+  M3 = exp(REAL(L1)) / (7.0 - REAL(L2)) + REAL(L3)
+  WRITE(10,'(A,1X,ES13.3E2)') 'M3 =', M3
 
 
   CLOSE (10)
