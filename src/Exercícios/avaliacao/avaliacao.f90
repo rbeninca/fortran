@@ -6,6 +6,7 @@ PROGRAM prova1
   CHARACTER(LEN=50) :: Aluno
   CHARACTER(LEN=50) :: Dia
   INTEGER :: L1, L2, L3
+  REAL :: M1
 
 
   ! 2) Criar arquivo de saída
@@ -33,7 +34,7 @@ PROGRAM prova1
  ! 5) M1: média aritmética
   M1 = (REAL(L1) + REAL(L2) + REAL(L3)) / 3.0
   WRITE(10,'(A,1X,ES13.3E2)') 'M1 =', M1
-  
+
 
   CLOSE (10)
 END PROGRAM prova1
