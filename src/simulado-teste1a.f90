@@ -29,7 +29,7 @@ write (10,*) 'AVALIACAO 1 - FORTRAN'
 WRITE (10,*) 'Nome: ', 'ROMULO DE AGUIAR BENINCA'
 CALL date_and_time(VALUES=DATA_HORA)
 WRITE(10,"(A,I0,A,I0,A,I0,A,I0,A,I0,A,I0)") &
-'Data: ', DATA_HORA(1), '/', DATA_HORA(2), '/', DATA_HORA(3), ' ', DATA_HORA(4), ':', DATA_HORA(5), ':', DATA_HORA(6)
+'Data: ', DATA_HORA(1), '/', DATA_HORA(2), '/', DATA_HORA(3), ' - ', DATA_HORA(4), ':', DATA_HORA(5), ':', DATA_HORA(6)
 
 
 !7) [10 pontos] Escrever no arquivo de saída os valores lidos no item 5 de todos os dados do programa, juntamente com comentários para distinguir cada um deles.
@@ -58,6 +58,7 @@ WRITE(10,*) 'N = ', N
 
 J = (A + B + C + D) / 4.0
 WRITE(10,*) 'J = ', J
+
 
 !13) [10 pontos] Calcular e escrever a média geométrica da soma dos valores dos 4 dados (A, B, C e D) e atribuir o resultado à variável real J.
 J = ((A * B * C * D)**(1.0/4.0))

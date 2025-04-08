@@ -53,8 +53,9 @@ OPEN(UNIT=10, FILE='./tmp/dados_saida.txt', STATUS='UNKNOWN', ACTION='READWRITE'
 WRITE(10,*) 'AVALIACAO 1 - FORTRAN'
 WRITE(10,*) 'Nome: ', 'ROMULO DE AGUIAR BENINCA'
 CALL date_and_time(VALUES=DATA_HORA)
+! dia posicao 3 , mes posicao 2, ano posicao 1  -- hora posicao 4, minuto posicao 5, segundo posicao 6
 WRITE(10,"(A,I0,A,I0,A,I0,A,I0,A,I0,A,I0)") &
-'Data: ', DATA_HORA(1), '/', DATA_HORA(2), '/', DATA_HORA(3), ' ', DATA_HORA(4), ':', DATA_HORA(5), ':', DATA_HORA(6)
+'Data: ', DATA_HORA(3), '/', DATA_HORA(2), '/', DATA_HORA(1), '    ', DATA_HORA(4), ':', DATA_HORA(5), ':', DATA_HORA(6)
 WRITE(10,*) 'Valores lidos:'
 WRITE(10, '(A, ES12.4)') 'b1 = ', REAL(b1)
 WRITE(10, '(A, ES12.4)') 'b2 = ', REAL(b2)
