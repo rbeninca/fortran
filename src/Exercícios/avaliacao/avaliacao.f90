@@ -28,5 +28,12 @@ PROGRAM prova1
   WRITE(10,'(A,I5)') 'L2 =', L2
   WRITE(10,'(A,I5)') 'L3 =', L3
 
+
+
+ ! 5) M1: média aritmética
+  M1 = (REAL(L1) + REAL(L2) + REAL(L3)) / 3.0
+  WRITE(10,'(A,1X,ES13.3E2)') 'M1 =', M1
+  
+
   CLOSE (10)
 END PROGRAM prova1
