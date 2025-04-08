@@ -21,5 +21,12 @@ PROGRAM prova1
   WRITE(*,*) 'Digite os valores de L1, L2 e L3:'
   READ(*,*) L1, L2, L3
 
+  ! 4) Escrever Aluno, Dia, L1, L2 e L3
+  WRITE(10,'(A,1X,A)') 'Aluno =', TRIM(Aluno)
+  WRITE(10,'(A,1X,A)') 'Dia =', TRIM(Dia)
+  WRITE(10,'(A,I5)') 'L1 =', L1
+  WRITE(10,'(A,I5)') 'L2 =', L2
+  WRITE(10,'(A,I5)') 'L3 =', L3
+
   CLOSE (10)
 END PROGRAM prova1
