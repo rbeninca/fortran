@@ -48,5 +48,12 @@ PROGRAM prova1
   M4 = base ** (1.0 / REAL(L3))
   WRITE(10,'(A,1X,ES13.3E2)') 'M4 =', M4
 
+  ! 9) M5 = sin(75 graus) / log10(1/L3)
+  pi = 3,14159265
+  numerador = sin(75.0 * pi / 180.0)
+  denominador = log10(1.0 / REAL(L3))
+  M5 = numerador / denominador
+  WRITE(10,'(A,1X,ES13.3E2)') 'M5 =', M5
+
   CLOSE (10)
 END PROGRAM prova1
