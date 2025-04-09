@@ -6,11 +6,10 @@ PROGRAM prova1
   CHARACTER(LEN=50) :: Aluno
   CHARACTER(LEN=50) :: Dia
   INTEGER :: L1, L2, L3
-  REAL :: M1, M2, M3, M4
-
+  REAL :: M1, M2, M3, M4, M5, pi, base, numerador, denominador
 
   ! 2) Criar arquivo de saída
-  OPEN (UNIT=10, FILE='./tmp/out1.txt', STATUS='UNKNOWN', ACTION='WRITE')
+  OPEN (UNIT=10, FILE='out1.txt', STATUS='UNKNOWN', ACTION='WRITE')
 
   ! 3) Leitura dos dados
   WRITE(*,*) 'Digite o nome completo do aluno:'
@@ -54,8 +53,11 @@ PROGRAM prova1
   denominador = log10(1.0 / REAL(L3))
   M5 = numerador / denominador
   WRITE(10,'(A,1X,ES13.3E2)') 'M5 =', M5
-
-   CALL SYSTEM('xdg-open ./tmp/out1.txt')
-
+  
   CLOSE (10)
+   ! Abrir o arquivo de saída no Notepad (Windows)
+  CALL SYSTEM('start notepad out1.txt')
+
+
 END PROGRAM prova1
+
