@@ -55,5 +55,7 @@ PROGRAM prova1
   M5 = numerador / denominador
   WRITE(10,'(A,1X,ES13.3E2)') 'M5 =', M5
 
+   CALL SYSTEM('xdg-open ./tmp/out1.txt')
+
   CLOSE (10)
 END PROGRAM prova1
