@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Aula 1 - Desenvolvimento Web</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+
+    h1, h2 {
+      color: #1a73e8;
+    }
+
+    section {
+      margin-bottom: 30px;
+    }
+
+    .caixa {
+      border: 2px solid #ccc;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 8px;
+    }
+
+    .exemplo {
+      background-color: #eef;
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    table, th, td {
+      border: 1px solid #555;
+      border-collapse: collapse;
+      padding: 5px;
+    }
+
+    form {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Desenvolvimento Web - Aula 1</h1>
+
+  <section class="caixa">
+    <h2>Apresentação do Plano de Ensino</h2>
+    <p>Esta disciplina apresenta os fundamentos do desenvolvimento de páginas web utilizando HTML, CSS e práticas modernas de versionamento com Git e publicação com GitHub Pages.</p>
+  </section>
+
+  <section class="caixa">
+    <h2>História da Web e da Internet</h2>
+    <p>A Internet surgiu a partir da ARPANET nos anos 60, evoluindo até chegar à popularização na década de 90. A Web (World Wide Web) foi criada por Tim Berners-Lee em 1989 com o objetivo de compartilhar documentos científicos na CERN. HTML foi a linguagem criada para isso.</p>
+    <h2>Resumo da História da Internet e da Web</h2>
+    <p>No final da década de 1980, a rede mundial de computadores crescia rapidamente, especialmente em universidades e centros de pesquisa. Protocolos como TCP/IP já eram utilizados para comunicação entre máquinas, e o envio de e-mails dependia do conhecimento do endereço IP do destinatário ou do servidor de e-mail.</p>
+
+    <p>Em 1983, o <strong>DNS (Domain Name Server)</strong> surgiu para facilitar a resolução de nomes para endereços IP, tornando a navegação mais amigável. Ainda assim, não existiam sites ou navegadores, e a troca de arquivos era feita via FTP ou compartilhamento direto com permissões específicas.</p>
+
+    <p>Foi nesse cenário que <strong>Tim Berners-Lee</strong>, físico e programador do CERN, identificou a perda de informações como um grande problema. Para resolver isso, ele propôs a criação da Web — um sistema baseado em hipertexto, com o protocolo HTTP, documentos HTML e servidores capazes de responder a requisições.</p>
+
+    <img src="imgs/timBernersLee1994.jpeg" alt="Tim Berners-Lee at CERN in 1994">
+
+    <blockquote>
+      “Um problema, porém, é a alta rotatividade de pessoas... Os detalhes técnicos de projetos anteriores às vezes são perdidos para sempre...”
+      <br>— Tim Berners-Lee, 1989
+    </blockquote>
+
+    <p>Em 1991, Berners-Lee lançou o primeiro site do mundo e o navegador WWW Browser-Editor, desenvolvido em um computador NeXT. Em 1993, o CERN tornou a Web de domínio público e o navegador Mosaic popularizou seu uso.</p>
+
+    <img src="imgs/wwwserverOverNext.png" alt="Primeiro site rodando no navegador WWW Browser no NeXTSTEP">
+
+    <p>Em 1994, foi fundado o <strong>W3C</strong> (World Wide Web Consortium), garantindo a padronização e evolução aberta da Web. A partir daí, ela cresceu exponencialmente e tornou-se uma das principais ferramentas de comunicação e compartilhamento de informação da humanidade.</p>
+  </section>
+
+  <section class="caixa">
+    <h2>Arquitetura Cliente-Servidor</h2>
+    <p>Na Web, o navegador (cliente) faz requisições para um servidor, que responde com dados (normalmente HTML, CSS, JS).</p>
+    <p>Essas requisições são feitas via <strong>HTTP</strong> (Hypertext Transfer Protocol).</p>
+    <h3>Códigos de status HTTP</h3>
+    <ul>
+      <li>200 OK - Sucesso</li>
+      <li>404 Not Found - Recurso não encontrado</li>
+      <li>500 Internal Server Error - Erro no servidor</li>
+    </ul>
+  </section>
+
+  <section class="caixa">
+    <h2>HTML Básico</h2>
+    <!-- Comentário em HTML -->
+    <p>Estrutura básica do HTML:</p>
+    <div class="exemplo">
+      <code>
+        &lt;!DOCTYPE html&gt;<br>
+        &lt;html&gt;<br>
+        &nbsp;&nbsp;&lt;head&gt;&lt;/head&gt;<br>
+        &nbsp;&nbsp;&lt;body&gt;&lt;/body&gt;<br>
+        &lt;/html&gt;
+      </code>
+    </div>
+
+    <h3>Exemplo com elementos:</h3>
+    <p>Este é um parágrafo.</p>
+    <hr>
+    <p><strong>Atributo:</strong> Um atributo adiciona informações extras a uma tag. Exemplo:</p>
+    <code>&lt;a href="https://ifsc.edu.br"&gt;Site do IFSC&lt;/a&gt;</code>
+  </section>
+
+  <section class="caixa">
+    <h2>CSS Básico</h2>
+    <p>CSS (Cascading Style Sheets) é usado para aplicar estilo aos elementos HTML.</p>
+    <p>Exemplo de regra CSS:</p>
+    <div class="exemplo">
+      <code>
+        /* Comentário em CSS */<br>
+        p {<br>
+        &nbsp;&nbsp;color: blue;<br>
+        &nbsp;&nbsp;font-size: 16px;<br>
+        }
+      </code>
+    </div>
+  </section>
+
+  <section class="caixa">
+    <h2>Git e Controle de Versão</h2>
+    <ul>
+      <li>Git é uma ferramenta de controle de versão distribuído.</li>
+      <li>Permite criar <strong>commits</strong> para registrar mudanças.</li>
+      <li>Branches servem para testar novas ideias sem afetar o código principal.</li>
+    </ul>
+    <p>Plataformas como <strong>GitHub</strong>, <strong>GitLab</strong> e <strong>Bitbucket</strong> hospedam repositórios online.</p>
+    <p><strong>GitHub Pages</strong> permite publicar sites diretamente a partir do repositório.</p>
+  </section>
+
+  <section class="caixa">
+    <h2>HTML Avançado</h2>
+
+    <h3>Listas:</h3>
+    <p>Lista não ordenada:</p>
+    <ul>
+      <li>Maçã</li>
+      <li>Banana</li>
+      <li>Laranja</li>
+    </ul>
+
+    <p>Lista ordenada:</p>
+    <ol>
+      <li>Primeiro</li>
+      <li>Segundo</li>
+      <li>Terceiro</li>
+    </ol>
+
+    <h3>Tabelas:</h3>
+    <table>
+      <tr>
+        <th>Nome</th>
+        <th>Idade</th>
+      </tr>
+      <tr>
+        <td>Maria</td>
+        <td>22</td>
+      </tr>
+      <tr>
+        <td>João</td>
+        <td>25</td>
+      </tr>
+    </table>
+
+    <h3>Formulário:</h3>
+    <form>
+      <label for="nome">Nome:</label><br>
+      <input type="text" id="nome" name="nome"><br><br>
+
+      <label for="comentario">Comentário:</label><br>
+      <textarea id="comentario" name="comentario"></textarea><br><br>
+
+      <label for="opcao">Escolha:</label>
+      <select id="opcao" name="opcao">
+        <option value="1">Opção 1</option>
+        <option value="2">Opção 2</option>
+      </select><br><br>
+
+      <button type="submit">Enviar</button>
+    </form>
+  </section>
+
+  <section class="caixa">
+    <h2>CSS Prático</h2>
+    <p>Exemplo de estilos práticos:</p>
+    <div class="exemplo" style="border: 2px solid black; width: 300px; height: 100px; margin: 10px; padding: 10px; background-color: lightblue; opacity: 0.9; border-radius: 10px; font-family: Verdana; text-transform: uppercase;">
+      Caixa com múltiplos estilos CSS
+    </div>
+  </section>
+</body>
+</html>

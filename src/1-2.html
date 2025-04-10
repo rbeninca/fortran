@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <title>HTML - Aula 1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f9f9f9;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #1a73e8;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            margin: 15px 0;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        pre {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: Consolas, monospace;
+        }
+
+        .caixa {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Aula 1 - Introdução ao HTML</h1>
+    <div class="caixa">
+        <h2>O que é HTML?</h2>
+        <p>Uma página da web é um conjunto de arquivos que o navegador renderiza para exibir conteúdo. O HTML (Linguagem
+            de Marcação de Hipertexto) é utilizado para estruturar esse conteúdo de forma semântica. Ele define títulos,
+            parágrafos, imagens, links e muito mais.</p>
+        <p>HTML não é uma linguagem de programação, mas sim uma linguagem de marcação: ela marca o conteúdo com
+            significado, como um título ou um parágrafo, permitindo que o navegador o exiba de forma adequada.</p>
+    </div>
+
+    <div class="caixa">
+        <h2>Estrutura de um Elemento HTML</h2>
+        <p>Os elementos HTML são formados por uma tag de abertura, o conteúdo, e uma tag de fechamento. Exemplo:</p>
+        <pre><code>&lt;h1&gt;Título&lt;/h1&gt;</code></pre>
+        <img src="imgs/elementHTML.png" alt="Estrutura de um elemento HTML">
+            alt="Explicação de tags HTML">
+    </div>
+
+    <div class="caixa">
+        <h2>Exemplos de Elementos HTML</h2>
+        <ul>
+            <li><code>&lt;h1&gt;</code>: título principal</li>
+            <li><code>&lt;p&gt;</code>: parágrafo</li>
+            <li><code>&lt;a&gt;</code>: link</li>
+            <li><code>&lt;img&gt;</code>: imagem</li>
+            <li><code>&lt;button&gt;</code>: botão</li>
+            <li><code>&lt;em&gt;</code>, <code>&lt;strong&gt;</code>: ênfases</li>
+            <li><code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, <code>&lt;li&gt;</code>: listas</li>
+            <li><code>&lt;table&gt;</code>: tabela</li>
+            <li><code>&lt;form&gt;</code>: formulário</li>
+            <li><code>&lt;div&gt;</code>, <code>&lt;span&gt;</code>: containers</li>
+        </ul>
+    </div>
+
+    <div class="caixa">
+        <h2>Comentários</h2>
+        <p>Comentários são trechos ignorados pelo navegador:</p>
+        <pre><code>&lt;!-- Este é um comentário --&gt;</code></pre>
+    </div>
+
+    <div class="caixa">
+        <h2>Atributos</h2>
+        <p>Atributos fornecem informações extras às tags. Exemplo:</p>
+        <pre><code>&lt;a href="https://ifsc.edu.br"&gt;Site do IFSC&lt;/a&gt;</code></pre>
+        <pre><code>&lt;img src="foto.jpg" alt="descrição da imagem"&gt;</code></pre>
+    </div>
+
+    <div class="caixa">
+        <h2>Aninhamento de Elementos</h2>
+        <p>Tags podem ser aninhadas. Exemplo:</p>
+        <pre><code>&lt;h1&gt;Título com &lt;em&gt;ênfase&lt;/em&gt;&lt;/h1&gt;</code></pre>
+        <img src="https://info340.github.io/img/html/nesting.png" alt="Exemplo de aninhamento">
+    </div>
+
+    <div class="caixa">
+        <h2>Bloco vs Inline</h2>
+        <p>Elementos de bloco ocupam toda a largura e começam em nova linha. Inline ficam na mesma linha.</p>
+        <img src="https://info340.github.io/img/html/block-element.png" alt="Elementos de bloco">
+        <img src="https://info340.github.io/img/html/inline-element.png" alt="Elementos inline">
+    </div>
+
+    <div class="caixa">
+        <h2>Estrutura Básica de uma Página HTML</h2>
+        <pre><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="pt-br"&gt;
+  &lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;Minha Página&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    Conteúdo aqui!
+  &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+<img src="imgs/arvoreHTML.png" alt="">
+    </div>
+</body>
+
+</html>
+
+<div class="caixa">
+    <h2>Git e Controle de Versão</h2>
+    <p>O Git é um sistema de controle de versão distribuído que permite salvar o histórico de mudanças no código.</p>
+    <ul>
+        <li><strong>commit:</strong> salva o estado atual do projeto com uma mensagem descritiva.</li>
+        <li><strong>branch:</strong> uma linha de desenvolvimento paralela ao código principal.</li>
+    </ul>
+    <p>Serviços como <strong>GitHub</strong>, <strong>GitLab</strong> e <strong>Bitbucket</strong> permitem hospedar
+        seus repositórios e colaborar com outras pessoas.</p>
+    <p><strong>GitHub Pages</strong> é um recurso do GitHub que permite publicar páginas web diretamente de um
+        repositório.</p>
+</div>
+
+<div class="caixa">
+    <h2>CSS Básico</h2>
+    <p>CSS é a linguagem usada para definir estilos em documentos HTML.</p>
+    <pre><code>
+p {
+  color: blue;
+  font-size: 16px;
+}
+  </code></pre>
+</div>
+
+<div class="caixa">
+    <h2>CSS Prático</h2>
+    <p>Você pode aplicar estilos diretamente aos elementos com várias propriedades úteis:</p>
+    <ul>
+        <li><strong>border</strong>: define bordas</li>
+        <li><strong>width</strong>, <strong>height</strong>: largura e altura</li>
+        <li><strong>margin</strong>, <strong>padding</strong>: espaçamento externo e interno</li>
+        <li><strong>color</strong>: cor do texto</li>
+        <li><strong>background-color</strong>: cor de fundo</li>
+        <li><strong>opacity</strong>: transparência</li>
+        <li><strong>border-radius</strong>: cantos arredondados</li>
+        <li><strong>font-family</strong>, <strong>font-size</strong>: fonte e tamanho</li>
+        <li><strong>text-transform</strong>: maiúsculas, minúsculas etc.</li>
+    </ul>
+    <div
+        style="border: 2px solid black; width: 300px; height: 100px; margin: 10px; padding: 10px; background-color: lightblue; opacity: 0.9; border-radius: 10px; font-family: Verdana; text-transform: uppercase;">
+        Caixa estilizada com CSS
+    </div>
+</div>
+
+<div class="caixa">
+    <h2>Prática Guiada</h2>
+    <p>Durante a prática, você deve montar uma página utilizando os seguintes recursos:</p>
+    <ul>
+        <li>Listas: <code>&lt;ul&gt;</code>, <code>&lt;ol&gt;</code>, <code>&lt;li&gt;</code></li>
+        <li>Tabelas: <code>&lt;table&gt;</code>, <code>&lt;tr&gt;</code>, <code>&lt;td&gt;</code></li>
+        <li>Formulários: <code>&lt;form&gt;</code>, <code>&lt;input&gt;</code>, <code>&lt;textarea&gt;</code>,
+            <code>&lt;button&gt;</code>, <code>&lt;label&gt;</code>, <code>&lt;select&gt;</code>,
+            <code>&lt;option&gt;</code>
+        </li>
+        <li>Estilos aplicados com CSS: <code>border</code>, <code>padding</code>, <code>margin</code>,
+            <code>color</code>, etc.
+        </li>
+    </ul>
+    <p>Experimente integrar os conhecimentos em um site pessoal simples.</p>
+</div>
+</body>
+
+</html>
