@@ -10,7 +10,7 @@ BIN_DIR = bin
 MOD_DIR = modules
 
 # Busca recursiva por arquivos .f90, exceto portlib
-SOURCES = $(shell find "$(SRC_DIR)" -name '*.f90' ! -name 'portlib.f90')
+SOURCES = $(shell find "$(SRC_DIR)" -name '*.f90' ! -path "$(SRC_DIR)/marchi/*")
 
 # Cria os nomes dos binários, pegando só o nome base
 TARGETS = $(patsubst %.f90, $(BIN_DIR)/%, $(notdir $(SOURCES)))
@@ -30,7 +30,7 @@ all: ensure_dirs $(MOD_DIR)/portlib.mod $(TARGETS)
 
 # Compila cada arquivo fonte para a pasta bin
 $(BIN_DIR)/%: $(MOD_DIR)/portlib.mod
-	@SRC_FILE=$$(find "$(SRC_DIR)" -name "$*.f90"); \
+	@SRC_FILE=$$(find "$(SRC_DIR)" -name "$*.f90" ! -path "$(SRC_DIR)/marchi/*"); \
 	if [ -z "$$SRC_FILE" ]; then \
 	  echo "Erro: Não foi encontrado o arquivo para $@"; \
 	  exit 1; \

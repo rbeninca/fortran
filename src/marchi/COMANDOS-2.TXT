@@ -1,0 +1,6 @@
+set xlabel 'x'
+set ylabel 'y'
+set title 'Teste do Wgnuplot com arquivo de comandos'
+set grid
+set data style linespoints
+plot 'dados-2.txt'
