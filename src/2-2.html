@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>CSS Box Model - Explicação Completa</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f9f9f9;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1, h2 {
+      color: #1a73e8;
+    }
+    .box {
+      background-color: #fff;
+      padding: 20px;
+      border: 5px solid #1a73e8;
+      margin: 20px;
+      border-radius: 10px;
+    }
+    .exemplo {
+      border: 2px solid #000;
+      padding: 10px;
+      margin: 15px;
+      background-color: #eaeaea;
+      border-radius: 5px;
+    }
+    code {
+      background-color: #eee;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-family: Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>CSS Box Model</h1>
+
+  <div class="box">
+    <h2>O que é o Box Model?</h2>
+    <p>O <strong>Box Model</strong> (modelo de caixa) do CSS é o modelo fundamental utilizado pelos navegadores para calcular o espaço que um elemento ocupa em uma página web.</p>
+    <p>Ele é composto por quatro partes:</p>
+    <ul>
+      <li><strong>Content (Conteúdo)</strong>: O espaço onde o texto e as imagens aparecem.</li>
+      <li><strong>Padding (Preenchimento)</strong>: Espaço entre o conteúdo e a borda.</li>
+      <li><strong>Border (Borda)</strong>: Linha que envolve o padding e o conteúdo.</li>
+      <li><strong>Margin (Margem)</strong>: Espaço fora da borda, separando o elemento dos demais elementos.</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h2>Exemplo Prático</h2>
+    <p>Observe a estilização desta caixa:</p>
+    <div class="exemplo">
+      Conteúdo interno com padding, borda e margem definidos.
+    </div>
+    <pre><code>
+.exemplo {
+  border: 2px solid #000;
+  padding: 10px;
+  margin: 15px;
+  background-color: #eaeaea;
+}
+    </code></pre>
+  </div>
+
+  <div class="box">
+    <h2>Propriedades do Box Model</h2>
+    <ul>
+      <li><code>width</code> e <code>height</code>: definem largura e altura do conteúdo.</li>
+      <li><code>padding</code>: adiciona espaço interno ao redor do conteúdo.</li>
+      <li><code>border</code>: adiciona borda em torno do padding.</li>
+      <li><code>margin</code>: adiciona espaço externo ao redor do elemento.</li>
+      <li><code>box-sizing</code>: altera o cálculo do tamanho da caixa (<code>content-box</code> ou <code>border-box</code>).</li>
+    </ul>
+    <p>Exemplo de uso do <code>box-sizing</code> para facilitar a medição dos elementos:</p>
+    <pre><code>
+.elemento {
+  box-sizing: border-box; /* Inclui padding e borda no cálculo da largura/altura */
+  width: 200px;
+  padding: 10px;
+  border: 5px solid #000;
+}
+    </code></pre>
+  </div>
+</body>
+</html>
