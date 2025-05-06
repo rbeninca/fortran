@@ -1,4 +1,4 @@
-
+PROGRAM programa10-b
 INTEGER LINHA, LINHAS, COLUNA, COLUNAS
 INTEGER, ALLOCATABLE, DIMENSION(:,:) :: MATRIZ
 WRITE(*,*) "Entre com o numero de linhas da matriz"
