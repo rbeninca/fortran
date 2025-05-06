@@ -2,7 +2,7 @@ PROGRAM programa9_6
 	IMPLICIT NONE
 	INTEGER TERMO , N, SN, D
 	INTEGER, ALLOCATABLE, DIMENSION(:) :: A
-
+	REAL 
 	WRITE(*,*) "Todas as variaveis sao do tipo inteiro"
 	WRITE(*,*) "Entre com o numero de termos da P.A."
 	
@@ -17,8 +17,8 @@ PROGRAM programa9_6
 
 	!READ(*,*) A(-5)
 	call random_seed()
-	call random_number(A(-5))
-	A(-5)=A(-5)*100;
+	call random_number()
+	
 
 
 	WRITE(*,*) "Entre com a diferenca entre dois termos subsequentes"
