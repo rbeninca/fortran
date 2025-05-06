@@ -44,6 +44,7 @@ $(MOD_DIR)/portlib.mod: $(MOD_DIR)/portlib.f90
 	$(FC) -c $< -J $(MOD_DIR) -o $(MOD_DIR)/portlib.o
 
 # Cria as pastas se não existirem
+
 ensure_dirs:
 	@mkdir -p "$(SRC_DIR)"
 	@mkdir -p "$(BIN_DIR)"
