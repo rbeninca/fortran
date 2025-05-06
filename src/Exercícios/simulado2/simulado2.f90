@@ -2,7 +2,7 @@ PROGRAM PROVA2_TM226B
     IMPLICIT NONE
   
     ! Declaração de variáveis (Item 2)
-    REAL(8), ALLOCATABLE :: L(:)        ! Conjunto L (valores reais)
+    REAL, ALLOCATABLE :: L(:)        ! Conjunto L (valores reais)
     INTEGER           :: A            ! Quantidade de elementos em L
     INTEGER           :: I, J, K, V   ! Variáveis de controle do ciclo
     REAL              :: M2, N, M6    ! Resultados dos cálculos
