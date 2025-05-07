@@ -9,7 +9,7 @@ program prova2
    !se o debug estiver ativo, o programa vai usar os valores de teste
 
    ! Abrir arquivo de saida
-   open(unit=10, file='out2.txt', status='replace', action='write', position='append')
+   open(unit=10, file='out2.txt', status='replace', action='readwrite')
 
    ! inicializacao dados o dos dados (item 11 do enunciado)
    WRITE (*,*) "Digite o nome completo do aluno:"
@@ -31,18 +31,7 @@ program prova2
    do i = 1, S
       WRITE (*,*) "K(", i, ") = "
       IF (.NOT. debug)  READ (*,*) K(i)
-      IF (debug) then
-         K(1) = 3E-2
-         K(2) = -2.5
-         K(3) = 4.7E-1
-         K(4) = 0.9
-         K(5) = 1.6
-         K(6) = -1.0
-         K(7) = 4E-2
-         K(8) = 2.13E1
-         K(9) = 5.7
-         K(10) = -12.8
-      END IF
+      IF (debug) k = (/ 3E-2, -2.5, 4.7E-1, 0.9, 1.6, -1.0, 4E-2, 2.13E1, 5.7, -12.8 /)
    end do
 
    ! Escrever TITULO, MES e S
