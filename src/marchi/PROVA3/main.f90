@@ -27,7 +27,8 @@ program PROVA3
    M1 = dexp(K1)
    M2 = dlog(d)   ! Converte 'd' para double precision antes do logaritmo
    M3 = dcosh(N)
-! (e) Calcular M4
+
+! Cálculo de M4 (Série)
    M4 = 0.d0
    do b = 0, int(d)
       M4 = M4 + (4.d0*(b-1)*(2*b+1))/(2*b+1)
@@ -36,7 +37,7 @@ program PROVA3
 
 ! (f) Calcular M5
    M5 = 0.d0
-   do b = 0, int(d), 2
+   do b = 0, int(d), 2	  !problema ? para aqui
       M5 = M5 + 5.d0/factorial(b)
    end do
 ! (g) Calcular M6 e M7
