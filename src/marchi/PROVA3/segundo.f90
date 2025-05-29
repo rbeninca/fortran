@@ -4,7 +4,7 @@ implicit none
 contains
 
   subroutine DADOS(nome, dia, K1, d, N, L, X)
-    character(len=100), intent(out) :: nome, dia
+    character(len=50), intent(out) :: nome, dia
     real*8, intent(out) :: K1, d, N, L, X
 
     open(10, file='ENTRA3.TXT', status='old')
