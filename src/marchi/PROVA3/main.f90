@@ -1,4 +1,5 @@
 program PROVA3
+   use portlib
    use ROTINAS
    implicit none
 
@@ -44,28 +45,30 @@ program PROVA3
    call SERIES(int(d), int(X), M6, M7)
    close(20)
 
-   open(9, file='OUT3.TXT',STATUS='UNKNOWN',ACTION='WRITE')
+! Abrir ficheiro de saída
+  open(9, file="OUT3.TXT")
 
-   ! Escrita dos dados de entrada no ficheiro
-   write(9,100) Nome
-   write(9,101) Dia
-   write(9,102) K1
-   write(9,103) d
-   write(9,104) N
-   write(9,105) L
-   write(9,106) 20
-  ! Escrita dos resultados no ficheiro 
-   write(9,100) Nome
-   write(9,101) Dia
-   write(9,102) K1
-   write(9,103) d
-   write(9,104) N
-   write(9,105) L
-   write(9,106) X
-  ! Tenta abrir o ficheiro de saída com o notepad (específico para Windows)
-   aux=SYSTEM(" notepad OUT3.TXT")
-    ! Fechar ficheiro
+  ! Escrita dos dados de entrada no ficheiro
+  write(9,100) Nome
+  write(9,101) Dia
+  write(9,102) K1
+  write(9,103) d
+  write(9,104) N
+  write(9,105) L
+  write(9,106) X
+
+  ! Escrita dos resultados no ficheiro
+  write(9,110) M1
+  write(9,111) M2
+  write(9,112) M3
+  write(9,113) M4
+  write(9,114) M5
+  write(9,115) M6
+  write(9,116) M7
+  ! Fechar ficheiro
   close(9)
+  ! Tenta abrir o ficheiro de saída com o notepad (específico para Windows)
+  aux=SYSTEM("notepad OUT3.TXT")
 
 ! FORMATs obrigatórios
 100 format('Nome = ', A50)
