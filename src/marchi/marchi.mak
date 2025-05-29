@@ -4,9 +4,8 @@
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
 !IF "$(CFG)" == ""
-CFG=programa_matrix - Win32 Debug
-!MESSAGE No configuration specified.  Defaulting to programa_matrix - Win32\
- Debug.
+CFG=program_14_1 - Win32 Debug
+!MESSAGE No configuration specified.  Defaulting to program_14_1 - Win32 Debug.
 !ENDIF 
 
 !IF "$(CFG)" != "marchi - Win32 Release" && "$(CFG)" != "marchi - Win32 Debug"\
@@ -31,12 +30,19 @@ CFG=programa_matrix - Win32 Debug
  "$(CFG)" != "programa10_2b - Win32 Debug" && "$(CFG)" !=\
  "programatab - Win32 Release" && "$(CFG)" != "programatab - Win32 Debug" &&\
  "$(CFG)" != "programa_matrix - Win32 Release" && "$(CFG)" !=\
- "programa_matrix - Win32 Debug"
+ "programa_matrix - Win32 Debug" && "$(CFG)" !=\
+ "programa_gnuplot - Win32 Release" && "$(CFG)" !=\
+ "programa_gnuplot - Win32 Debug" && "$(CFG)" !=\
+ "romulo_beninca - Win32 Release" && "$(CFG)" != "romulo_beninca - Win32 Debug"\
+ && "$(CFG)" != "programa13_1 - Win32 Release" && "$(CFG)" !=\
+ "programa13_1 - Win32 Debug" && "$(CFG)" != "PROGRAMA13_2 - Win32 Release" &&\
+ "$(CFG)" != "PROGRAMA13_2 - Win32 Debug" && "$(CFG)" !=\
+ "program_14_1 - Win32 Release" && "$(CFG)" != "program_14_1 - Win32 Debug"
 !MESSAGE Invalid configuration "$(CFG)" specified.
 !MESSAGE You can specify a configuration when running NMAKE on this makefile
 !MESSAGE by defining the macro CFG on the command line.  For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "marchi.mak" CFG="programa_matrix - Win32 Debug"
+!MESSAGE NMAKE /f "marchi.mak" CFG="program_14_1 - Win32 Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
@@ -106,6 +112,26 @@ CFG=programa_matrix - Win32 Debug
  "Win32 (x86) Console Application")
 !MESSAGE "programa_matrix - Win32 Debug" (based on\
  "Win32 (x86) Console Application")
+!MESSAGE "programa_gnuplot - Win32 Release" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "programa_gnuplot - Win32 Debug" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "romulo_beninca - Win32 Release" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "romulo_beninca - Win32 Debug" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "programa13_1 - Win32 Release" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "programa13_1 - Win32 Debug" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "PROGRAMA13_2 - Win32 Release" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "PROGRAMA13_2 - Win32 Debug" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "program_14_1 - Win32 Release" (based on\
+ "Win32 (x86) Console Application")
+!MESSAGE "program_14_1 - Win32 Debug" (based on\
+ "Win32 (x86) Console Application")
 !MESSAGE 
 !ERROR An invalid configuration is specified.
 !ENDIF 
@@ -118,8 +144,8 @@ NULL=nul
 ################################################################################
 # Begin Project
 # PROP Target_Last_Scanned "programa8_1b - Win32 Debug"
-F90=fl32.exe
 RSC=rc.exe
+F90=fl32.exe
 
 !IF  "$(CFG)" == "marchi - Win32 Release"
 
@@ -1830,6 +1856,513 @@ LINK32_OBJS= \
   $(LINK32_FLAGS) $(LINK32_OBJS)
 <<
 
+!ELSEIF  "$(CFG)" == "programa_gnuplot - Win32 Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "programa_gnuplot\Release"
+# PROP BASE Intermediate_Dir "programa_gnuplot\Release"
+# PROP BASE Target_Dir "programa_gnuplot"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "programa_gnuplot\Release"
+# PROP Intermediate_Dir "programa_gnuplot\Release"
+# PROP Target_Dir "programa_gnuplot"
+OUTDIR=.\programa_gnuplot\Release
+INTDIR=.\programa_gnuplot\Release
+
+ALL : "$(OUTDIR)\programa_gnuplot.exe"
+
+CLEAN : 
+	-@erase ".\programa_gnuplot\Release\programa_gnuplot.exe"
+	-@erase ".\programa_gnuplot\Release\programa_gnuplot.obj"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Ox /I "programa_gnuplot\Release/" /c /nologo
+# ADD F90 /Ox /I "programa_gnuplot\Release/" /c /nologo
+F90_PROJ=/Ox /I "programa_gnuplot\Release/" /c /nologo\
+ /Fo"programa_gnuplot\Release/" 
+F90_OBJS=.\programa_gnuplot\Release/
+# ADD BASE RSC /l 0x416 /d "NDEBUG"
+# ADD RSC /l 0x416 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/programa_gnuplot.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:no\
+ /pdb:"$(OUTDIR)/programa_gnuplot.pdb" /machine:I386\
+ /out:"$(OUTDIR)/programa_gnuplot.exe" 
+LINK32_OBJS= \
+	".\programa_gnuplot\Release\programa_gnuplot.obj"
+
+"$(OUTDIR)\programa_gnuplot.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "programa_gnuplot - Win32 Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "programa_gnuplot\Debug"
+# PROP BASE Intermediate_Dir "programa_gnuplot\Debug"
+# PROP BASE Target_Dir "programa_gnuplot"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "programa_gnuplot\Debug"
+# PROP Intermediate_Dir "programa_gnuplot\Debug"
+# PROP Target_Dir "programa_gnuplot"
+OUTDIR=.\programa_gnuplot\Debug
+INTDIR=.\programa_gnuplot\Debug
+
+ALL : "$(OUTDIR)\programa_gnuplot.exe"
+
+CLEAN : 
+	-@erase ".\programa_gnuplot\Debug\programa_gnuplot.exe"
+	-@erase ".\programa_gnuplot\Debug\programa_gnuplot.obj"
+	-@erase ".\programa_gnuplot\Debug\programa_gnuplot.ilk"
+	-@erase ".\programa_gnuplot\Debug\programa_gnuplot.pdb"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Zi /I "programa_gnuplot\Debug/" /c /nologo
+# ADD F90 /Zi /I "programa_gnuplot\Debug/" /c /nologo
+F90_PROJ=/Zi /I "programa_gnuplot\Debug/" /c /nologo\
+ /Fo"programa_gnuplot\Debug/" /Fd"programa_gnuplot\Debug/marchi.pdb" 
+F90_OBJS=.\programa_gnuplot\Debug/
+# ADD BASE RSC /l 0x416 /d "_DEBUG"
+# ADD RSC /l 0x416 /d "_DEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/programa_gnuplot.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:yes\
+ /pdb:"$(OUTDIR)/programa_gnuplot.pdb" /debug /machine:I386\
+ /out:"$(OUTDIR)/programa_gnuplot.exe" 
+LINK32_OBJS= \
+	".\programa_gnuplot\Debug\programa_gnuplot.obj"
+
+"$(OUTDIR)\programa_gnuplot.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "romulo_beninca - Win32 Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "romulo_beninca\Release"
+# PROP BASE Intermediate_Dir "romulo_beninca\Release"
+# PROP BASE Target_Dir "romulo_beninca"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "romulo_beninca\Release"
+# PROP Intermediate_Dir "romulo_beninca\Release"
+# PROP Target_Dir "romulo_beninca"
+OUTDIR=.\romulo_beninca\Release
+INTDIR=.\romulo_beninca\Release
+
+ALL : "$(OUTDIR)\romulo_beninca.exe"
+
+CLEAN : 
+	-@erase ".\romulo_beninca\Release\romulo_beninca.exe"
+	-@erase ".\romulo_beninca\Release\prova2.obj"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Ox /I "romulo_beninca\Release/" /c /nologo
+# ADD F90 /Ox /I "romulo_beninca\Release/" /c /nologo
+F90_PROJ=/Ox /I "romulo_beninca\Release/" /c /nologo\
+ /Fo"romulo_beninca\Release/" 
+F90_OBJS=.\romulo_beninca\Release/
+# ADD BASE RSC /l 0x416 /d "NDEBUG"
+# ADD RSC /l 0x416 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/romulo_beninca.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:no\
+ /pdb:"$(OUTDIR)/romulo_beninca.pdb" /machine:I386\
+ /out:"$(OUTDIR)/romulo_beninca.exe" 
+LINK32_OBJS= \
+	".\romulo_beninca\Release\prova2.obj"
+
+"$(OUTDIR)\romulo_beninca.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "romulo_beninca - Win32 Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "romulo_beninca\Debug"
+# PROP BASE Intermediate_Dir "romulo_beninca\Debug"
+# PROP BASE Target_Dir "romulo_beninca"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "romulo_beninca\Debug"
+# PROP Intermediate_Dir "romulo_beninca\Debug"
+# PROP Target_Dir "romulo_beninca"
+OUTDIR=.\romulo_beninca\Debug
+INTDIR=.\romulo_beninca\Debug
+
+ALL : "$(OUTDIR)\romulo_beninca.exe"
+
+CLEAN : 
+	-@erase ".\romulo_beninca\Debug\romulo_beninca.exe"
+	-@erase ".\romulo_beninca\Debug\prova2.obj"
+	-@erase ".\romulo_beninca\Debug\romulo_beninca.ilk"
+	-@erase ".\romulo_beninca\Debug\romulo_beninca.pdb"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Zi /I "romulo_beninca\Debug/" /c /nologo
+# ADD F90 /Zi /I "romulo_beninca\Debug/" /c /nologo
+F90_PROJ=/Zi /I "romulo_beninca\Debug/" /c /nologo /Fo"romulo_beninca\Debug/"\
+ /Fd"romulo_beninca\Debug/marchi.pdb" 
+F90_OBJS=.\romulo_beninca\Debug/
+# ADD BASE RSC /l 0x416 /d "_DEBUG"
+# ADD RSC /l 0x416 /d "_DEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/romulo_beninca.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:yes\
+ /pdb:"$(OUTDIR)/romulo_beninca.pdb" /debug /machine:I386\
+ /out:"$(OUTDIR)/romulo_beninca.exe" 
+LINK32_OBJS= \
+	".\romulo_beninca\Debug\prova2.obj"
+
+"$(OUTDIR)\romulo_beninca.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "programa13_1 - Win32 Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "programa13_1\Release"
+# PROP BASE Intermediate_Dir "programa13_1\Release"
+# PROP BASE Target_Dir "programa13_1"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "programa13_1\Release"
+# PROP Intermediate_Dir "programa13_1\Release"
+# PROP Target_Dir "programa13_1"
+OUTDIR=.\programa13_1\Release
+INTDIR=.\programa13_1\Release
+
+ALL : "$(OUTDIR)\programa13_1.exe"
+
+CLEAN : 
+	-@erase ".\programa13_1\Release\programa13_1.exe"
+	-@erase ".\programa13_1\Release\programa13_1.obj"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Ox /I "programa13_1\Release/" /c /nologo
+# ADD F90 /Ox /I "programa13_1\Release/" /c /nologo
+F90_PROJ=/Ox /I "programa13_1\Release/" /c /nologo /Fo"programa13_1\Release/" 
+F90_OBJS=.\programa13_1\Release/
+# ADD BASE RSC /l 0x416 /d "NDEBUG"
+# ADD RSC /l 0x416 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/programa13_1.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:no\
+ /pdb:"$(OUTDIR)/programa13_1.pdb" /machine:I386\
+ /out:"$(OUTDIR)/programa13_1.exe" 
+LINK32_OBJS= \
+	".\programa13_1\Release\programa13_1.obj"
+
+"$(OUTDIR)\programa13_1.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "programa13_1 - Win32 Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "programa13_1\Debug"
+# PROP BASE Intermediate_Dir "programa13_1\Debug"
+# PROP BASE Target_Dir "programa13_1"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "programa13_1\Debug"
+# PROP Intermediate_Dir "programa13_1\Debug"
+# PROP Target_Dir "programa13_1"
+OUTDIR=.\programa13_1\Debug
+INTDIR=.\programa13_1\Debug
+
+ALL : "$(OUTDIR)\programa13_1.exe"
+
+CLEAN : 
+	-@erase ".\programa13_1\Debug\programa13_1.exe"
+	-@erase ".\programa13_1\Debug\programa13_1.obj"
+	-@erase ".\programa13_1\Debug\programa13_1.ilk"
+	-@erase ".\programa13_1\Debug\programa13_1.pdb"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Zi /I "programa13_1\Debug/" /c /nologo
+# ADD F90 /Zi /I "programa13_1\Debug/" /c /nologo
+F90_PROJ=/Zi /I "programa13_1\Debug/" /c /nologo /Fo"programa13_1\Debug/"\
+ /Fd"programa13_1\Debug/marchi.pdb" 
+F90_OBJS=.\programa13_1\Debug/
+# ADD BASE RSC /l 0x416 /d "_DEBUG"
+# ADD RSC /l 0x416 /d "_DEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/programa13_1.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:yes\
+ /pdb:"$(OUTDIR)/programa13_1.pdb" /debug /machine:I386\
+ /out:"$(OUTDIR)/programa13_1.exe" 
+LINK32_OBJS= \
+	".\programa13_1\Debug\programa13_1.obj"
+
+"$(OUTDIR)\programa13_1.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "PROGRAMA13_2 - Win32 Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "PROGRAMA13_2\Release"
+# PROP BASE Intermediate_Dir "PROGRAMA13_2\Release"
+# PROP BASE Target_Dir "PROGRAMA13_2"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "PROGRAMA13_2\Release"
+# PROP Intermediate_Dir "PROGRAMA13_2\Release"
+# PROP Target_Dir "PROGRAMA13_2"
+OUTDIR=.\PROGRAMA13_2\Release
+INTDIR=.\PROGRAMA13_2\Release
+
+ALL : "$(OUTDIR)\PROGRAMA13_2.exe"
+
+CLEAN : 
+	-@erase ".\PROGRAMA13_2\Release\PROGRAMA13_2.exe"
+	-@erase ".\PROGRAMA13_2\Release\programa13_2.obj"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Ox /I "PROGRAMA13_2\Release/" /c /nologo
+# ADD F90 /Ox /I "PROGRAMA13_2\Release/" /c /nologo
+F90_PROJ=/Ox /I "PROGRAMA13_2\Release/" /c /nologo /Fo"PROGRAMA13_2\Release/" 
+F90_OBJS=.\PROGRAMA13_2\Release/
+# ADD BASE RSC /l 0x416 /d "NDEBUG"
+# ADD RSC /l 0x416 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/PROGRAMA13_2.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:no\
+ /pdb:"$(OUTDIR)/PROGRAMA13_2.pdb" /machine:I386\
+ /out:"$(OUTDIR)/PROGRAMA13_2.exe" 
+LINK32_OBJS= \
+	".\PROGRAMA13_2\Release\programa13_2.obj"
+
+"$(OUTDIR)\PROGRAMA13_2.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "PROGRAMA13_2 - Win32 Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "PROGRAMA13_2\Debug"
+# PROP BASE Intermediate_Dir "PROGRAMA13_2\Debug"
+# PROP BASE Target_Dir "PROGRAMA13_2"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "PROGRAMA13_2\Debug"
+# PROP Intermediate_Dir "PROGRAMA13_2\Debug"
+# PROP Target_Dir "PROGRAMA13_2"
+OUTDIR=.\PROGRAMA13_2\Debug
+INTDIR=.\PROGRAMA13_2\Debug
+
+ALL : "$(OUTDIR)\PROGRAMA13_2.exe"
+
+CLEAN : 
+	-@erase ".\PROGRAMA13_2\Debug\PROGRAMA13_2.exe"
+	-@erase ".\PROGRAMA13_2\Debug\programa13_2.obj"
+	-@erase ".\PROGRAMA13_2\Debug\PROGRAMA13_2.ilk"
+	-@erase ".\PROGRAMA13_2\Debug\PROGRAMA13_2.pdb"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Zi /I "PROGRAMA13_2\Debug/" /c /nologo
+# ADD F90 /Zi /I "PROGRAMA13_2\Debug/" /c /nologo
+F90_PROJ=/Zi /I "PROGRAMA13_2\Debug/" /c /nologo /Fo"PROGRAMA13_2\Debug/"\
+ /Fd"PROGRAMA13_2\Debug/marchi.pdb" 
+F90_OBJS=.\PROGRAMA13_2\Debug/
+# ADD BASE RSC /l 0x416 /d "_DEBUG"
+# ADD RSC /l 0x416 /d "_DEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/PROGRAMA13_2.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:yes\
+ /pdb:"$(OUTDIR)/PROGRAMA13_2.pdb" /debug /machine:I386\
+ /out:"$(OUTDIR)/PROGRAMA13_2.exe" 
+LINK32_OBJS= \
+	".\PROGRAMA13_2\Debug\programa13_2.obj"
+
+"$(OUTDIR)\PROGRAMA13_2.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "program_14_1 - Win32 Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "program_14_1\Release"
+# PROP BASE Intermediate_Dir "program_14_1\Release"
+# PROP BASE Target_Dir "program_14_1"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "program_14_1\Release"
+# PROP Intermediate_Dir "program_14_1\Release"
+# PROP Target_Dir "program_14_1"
+OUTDIR=.\program_14_1\Release
+INTDIR=.\program_14_1\Release
+
+ALL : "$(OUTDIR)\program_14_1.exe"
+
+CLEAN : 
+	-@erase ".\program_14_1\Release\program_14_1.exe"
+	-@erase ".\program_14_1\Release\program_14_1.obj"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Ox /I "program_14_1\Release/" /c /nologo
+# ADD F90 /Ox /I "program_14_1\Release/" /c /nologo
+F90_PROJ=/Ox /I "program_14_1\Release/" /c /nologo /Fo"program_14_1\Release/" 
+F90_OBJS=.\program_14_1\Release/
+# ADD BASE RSC /l 0x416 /d "NDEBUG"
+# ADD RSC /l 0x416 /d "NDEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/program_14_1.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:no\
+ /pdb:"$(OUTDIR)/program_14_1.pdb" /machine:I386\
+ /out:"$(OUTDIR)/program_14_1.exe" 
+LINK32_OBJS= \
+	".\program_14_1\Release\program_14_1.obj"
+
+"$(OUTDIR)\program_14_1.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ELSEIF  "$(CFG)" == "program_14_1 - Win32 Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "program_14_1\Debug"
+# PROP BASE Intermediate_Dir "program_14_1\Debug"
+# PROP BASE Target_Dir "program_14_1"
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "program_14_1\Debug"
+# PROP Intermediate_Dir "program_14_1\Debug"
+# PROP Target_Dir "program_14_1"
+OUTDIR=.\program_14_1\Debug
+INTDIR=.\program_14_1\Debug
+
+ALL : "$(OUTDIR)\program_14_1.exe"
+
+CLEAN : 
+	-@erase ".\program_14_1\Debug\program_14_1.exe"
+	-@erase ".\program_14_1\Debug\program_14_1.obj"
+	-@erase ".\program_14_1\Debug\program_14_1.ilk"
+	-@erase ".\program_14_1\Debug\program_14_1.pdb"
+
+"$(OUTDIR)" :
+    if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
+
+# ADD BASE F90 /Zi /I "program_14_1\Debug/" /c /nologo
+# ADD F90 /Zi /I "program_14_1\Debug/" /c /nologo
+F90_PROJ=/Zi /I "program_14_1\Debug/" /c /nologo /Fo"program_14_1\Debug/"\
+ /Fd"program_14_1\Debug/marchi.pdb" 
+F90_OBJS=.\program_14_1\Debug/
+# ADD BASE RSC /l 0x416 /d "_DEBUG"
+# ADD RSC /l 0x416 /d "_DEBUG"
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+BSC32_FLAGS=/nologo /o"$(OUTDIR)/program_14_1.bsc" 
+BSC32_SBRS=
+LINK32=link.exe
+# ADD BASE LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+# ADD LINK32 kernel32.lib /nologo /subsystem:console /debug /machine:I386
+LINK32_FLAGS=kernel32.lib /nologo /subsystem:console /incremental:yes\
+ /pdb:"$(OUTDIR)/program_14_1.pdb" /debug /machine:I386\
+ /out:"$(OUTDIR)/program_14_1.exe" 
+LINK32_OBJS= \
+	".\program_14_1\Debug\program_14_1.obj"
+
+"$(OUTDIR)\program_14_1.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
 !ENDIF 
 
 .for{$(F90_OBJS)}.obj:
@@ -1871,21 +2404,9 @@ LINK32_OBJS= \
 
 SOURCE=.\programa12_1\programa12_1.f90
 
-!IF  "$(CFG)" == "programa12_1 - Win32 Release"
-
-
 "$(INTDIR)\programa12_1.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa12_1 - Win32 Debug"
-
-
-"$(INTDIR)\programa12_1.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -1906,21 +2427,9 @@ SOURCE=.\programa12_1\programa12_1.f90
 
 SOURCE=.\programa7_1\programa7_1.f90
 
-!IF  "$(CFG)" == "programa7_1 - Win32 Release"
-
-
 "$(INTDIR)\programa7_1.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa7_1 - Win32 Debug"
-
-
-"$(INTDIR)\programa7_1.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -1953,21 +2462,9 @@ SOURCE=.\programa7_1a\programa7_1a
 
 SOURCE=.\programa7_1a\programa7_1a.f90
 
-!IF  "$(CFG)" == "programa7_1a - Win32 Release"
-
-
 "$(INTDIR)\programa7_1a.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa7_1a - Win32 Debug"
-
-
-"$(INTDIR)\programa7_1a.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 ################################################################################
@@ -1975,21 +2472,9 @@ SOURCE=.\programa7_1a\programa7_1a.f90
 
 SOURCE=.\programa7_1a\subrotina1.f90
 
-!IF  "$(CFG)" == "programa7_1a - Win32 Release"
-
-
 "$(INTDIR)\subrotina1.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa7_1a - Win32 Debug"
-
-
-"$(INTDIR)\subrotina1.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 ################################################################################
@@ -1997,21 +2482,9 @@ SOURCE=.\programa7_1a\subrotina1.f90
 
 SOURCE=.\programa7_1a\confereordem.f90
 
-!IF  "$(CFG)" == "programa7_1a - Win32 Release"
-
-
 "$(INTDIR)\confereordem.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa7_1a - Win32 Debug"
-
-
-"$(INTDIR)\confereordem.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2113,21 +2586,9 @@ SOURCE=.\programa8_6\programa8_6.f90
 
 SOURCE=.\programa8_2\programa8_2.f90
 
-!IF  "$(CFG)" == "programa8_2 - Win32 Release"
-
-
 "$(INTDIR)\programa8_2.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa8_2 - Win32 Debug"
-
-
-"$(INTDIR)\programa8_2.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2148,21 +2609,9 @@ SOURCE=.\programa8_2\programa8_2.f90
 
 SOURCE=.\programa8_3\programa8_3.f90
 
-!IF  "$(CFG)" == "programa8_3 - Win32 Release"
-
-
 "$(INTDIR)\programa8_3.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa8_3 - Win32 Debug"
-
-
-"$(INTDIR)\programa8_3.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2183,21 +2632,9 @@ SOURCE=.\programa8_3\programa8_3.f90
 
 SOURCE=.\program9_1a\programa9_1a.f90
 
-!IF  "$(CFG)" == "program9_1a - Win32 Release"
-
-
 "$(INTDIR)\programa9_1a.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "program9_1a - Win32 Debug"
-
-
-"$(INTDIR)\programa9_1a.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2218,21 +2655,9 @@ SOURCE=.\program9_1a\programa9_1a.f90
 
 SOURCE=.\programa9_4\programa9_4.f90
 
-!IF  "$(CFG)" == "programa9_4 - Win32 Release"
-
-
 "$(INTDIR)\programa9_4.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa9_4 - Win32 Debug"
-
-
-"$(INTDIR)\programa9_4.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2253,21 +2678,9 @@ SOURCE=.\programa9_4\programa9_4.f90
 
 SOURCE=.\programa9_6\programa9_6.f90
 
-!IF  "$(CFG)" == "programa9_6 - Win32 Release"
-
-
 "$(INTDIR)\programa9_6.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa9_6 - Win32 Debug"
-
-
-"$(INTDIR)\programa9_6.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2288,21 +2701,9 @@ SOURCE=.\programa9_6\programa9_6.f90
 
 SOURCE=.\programa10_1\programa10_1.f90
 
-!IF  "$(CFG)" == "programa10_1 - Win32 Release"
-
-
 "$(INTDIR)\programa10_1.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa10_1 - Win32 Debug"
-
-
-"$(INTDIR)\programa10_1.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2323,21 +2724,9 @@ SOURCE=.\programa10_1\programa10_1.f90
 
 SOURCE=.\programa10_1a\programa10_1a.f90
 
-!IF  "$(CFG)" == "programa10_1a - Win32 Release"
-
-
 "$(INTDIR)\programa10_1a.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa10_1a - Win32 Debug"
-
-
-"$(INTDIR)\programa10_1a.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2358,21 +2747,9 @@ SOURCE=.\programa10_1a\programa10_1a.f90
 
 SOURCE=.\programa10_2b\programa10_2b.f90
 
-!IF  "$(CFG)" == "programa10_2b - Win32 Release"
-
-
 "$(INTDIR)\programa10_2b.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programa10_2b - Win32 Debug"
-
-
-"$(INTDIR)\programa10_2b.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2393,21 +2770,9 @@ SOURCE=.\programa10_2b\programa10_2b.f90
 
 SOURCE=.\programatab\programatabuada.f90
 
-!IF  "$(CFG)" == "programatab - Win32 Release"
-
-
 "$(INTDIR)\programatabuada.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
-
-!ELSEIF  "$(CFG)" == "programatab - Win32 Debug"
-
-
-"$(INTDIR)\programatabuada.obj" : $(SOURCE) "$(INTDIR)"
-   $(F90) $(F90_PROJ) $(SOURCE)
-
-
-!ENDIF 
 
 # End Source File
 # End Target
@@ -2429,6 +2794,133 @@ SOURCE=.\programatab\programatabuada.f90
 SOURCE=.\programa_matrix\programa_matrix.f90
 
 "$(INTDIR)\programa_matrix.obj" : $(SOURCE) "$(INTDIR)"
+   $(F90) $(F90_PROJ) $(SOURCE)
+
+
+# End Source File
+# End Target
+################################################################################
+# Begin Target
+
+# Name "programa_gnuplot - Win32 Release"
+# Name "programa_gnuplot - Win32 Debug"
+
+!IF  "$(CFG)" == "programa_gnuplot - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "programa_gnuplot - Win32 Debug"
+
+!ENDIF 
+
+################################################################################
+# Begin Source File
+
+SOURCE=.\programa_gnuplot\programa_gnuplot.f90
+
+"$(INTDIR)\programa_gnuplot.obj" : $(SOURCE) "$(INTDIR)"
+   $(F90) $(F90_PROJ) $(SOURCE)
+
+
+# End Source File
+# End Target
+################################################################################
+# Begin Target
+
+# Name "romulo_beninca - Win32 Release"
+# Name "romulo_beninca - Win32 Debug"
+
+!IF  "$(CFG)" == "romulo_beninca - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "romulo_beninca - Win32 Debug"
+
+!ENDIF 
+
+################################################################################
+# Begin Source File
+
+SOURCE=.\romulo_beninca\prova2.f90
+
+"$(INTDIR)\prova2.obj" : $(SOURCE) "$(INTDIR)"
+   $(F90) $(F90_PROJ) $(SOURCE)
+
+
+# End Source File
+# End Target
+################################################################################
+# Begin Target
+
+# Name "programa13_1 - Win32 Release"
+# Name "programa13_1 - Win32 Debug"
+
+!IF  "$(CFG)" == "programa13_1 - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "programa13_1 - Win32 Debug"
+
+!ENDIF 
+
+################################################################################
+# Begin Source File
+
+SOURCE=.\programa13_1\programa13_1.F90
+
+!IF  "$(CFG)" == "programa13_1 - Win32 Release"
+
+
+"$(INTDIR)\programa13_1.obj" : $(SOURCE) "$(INTDIR)"
+   $(F90) $(F90_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "programa13_1 - Win32 Debug"
+
+
+"$(INTDIR)\programa13_1.obj" : $(SOURCE) "$(INTDIR)"
+   $(F90) $(F90_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+# End Source File
+# End Target
+################################################################################
+# Begin Target
+
+# Name "PROGRAMA13_2 - Win32 Release"
+# Name "PROGRAMA13_2 - Win32 Debug"
+
+!IF  "$(CFG)" == "PROGRAMA13_2 - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "PROGRAMA13_2 - Win32 Debug"
+
+!ENDIF 
+
+################################################################################
+# Begin Source File
+
+SOURCE=.\PROGRAMA13_2\programa13_2.F90
+
+"$(INTDIR)\programa13_2.obj" : $(SOURCE) "$(INTDIR)"
+   $(F90) $(F90_PROJ) $(SOURCE)
+
+
+# End Source File
+# End Target
+################################################################################
+# Begin Target
+
+# Name "program_14_1 - Win32 Release"
+# Name "program_14_1 - Win32 Debug"
+
+!IF  "$(CFG)" == "program_14_1 - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "program_14_1 - Win32 Debug"
+
+!ENDIF 
+
+################################################################################
+# Begin Source File
+
+SOURCE=.\program_14_1\program_14_1.f90
+
+"$(INTDIR)\program_14_1.obj" : $(SOURCE) "$(INTDIR)"
    $(F90) $(F90_PROJ) $(SOURCE)
 
 
