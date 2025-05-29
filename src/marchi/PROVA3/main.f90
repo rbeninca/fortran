@@ -2,14 +2,14 @@ program PROVA3
    use ROTINAS
    implicit none
 
-   character(len=100) :: nome, dia
+   character(len=50) :: nome, dia
    real*8 :: K1, N, L
    real*8 :: M1, M2, M3, M4, M5, M6, M7
    integer :: b, d, X, aux
    real*8 :: fat
 
 
-
+ ! Chamada à sub-rotina para obter os dados de entrada
    call DADOS(nome, dia, K1, d, N, L)
 
    ! ImpressÃ£o para conferÃªncia na consola
@@ -23,11 +23,9 @@ program PROVA3
 
 
 
-! (b) M1 = exp(K1)
+! Cálculos matemáticos
    M1 = dexp(K1)
-! (c) M2 = log(d)
-   M2 = dlog(d)
-! (d) M3 = cosh(N)
+   M2 = dlog(d)   ! Converte 'd' para double precision antes do logaritmo
    M3 = dcosh(N)
 ! (e) Calcular M4
    M4 = 0.d0
