@@ -8,14 +8,15 @@ integer :: b, aux
 open(20, file='OUT3.TXT',STATUS='UNKNOWN',ACTION='WRITE')
 call DADOS(nome, dia, K1, d, N, L, X)
 
-! (a) Escrever dados
-write(20,'(A)') nome ! Nome
-write(20,'(A)') dia  ! Dia
-write(20,'(E11.9)') K1     ! K1
-write(20,'(E11.9)') d      ! d
-write(20,'(E11.9)') N      ! N
-write(20,'(E11.9)') L      ! L
-write(20,'(E11.9)') X      ! X
+ ! Escrita dos dados de entrada no ficheiro
+  write(9,100) Nome
+  write(9,101) Dia
+  write(9,102) K1
+  write(9,103) d
+  write(9,104) N
+  write(9,105) L
+  write(9,106) X
+
 
 ! (b) M1 = exp(K1)
 M1 = dexp(K1)
@@ -49,5 +50,16 @@ write(20,'(E11.9)') M6 ! M6
 write(20,'(E11.9)') M7 ! M7
 close(20)
 CALL SYSTEM("start notepad OUT3.TXT")
+
+
+
+! FORMATs obrigatórios
+100 format('Nome = ', A50)
+101 format('Dia = ', A50)
+102 format('K1 = ', 1PE20.10)
+103 format('d = ', I10)
+104 format('N = ', 1PE20.10)  ! Formato para N
+105 format('L = ', 1PE20.10)  ! Formato para L
+106 format('X = ', I10)      ! Formato para X
 end program PROVA3
 									   
