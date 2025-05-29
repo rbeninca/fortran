@@ -30,7 +30,7 @@ contains
     end do
   end subroutine SERIES
 
-  integer function factorial(n)
+  real(8) function factorial(n)
     integer, intent(in) :: n
     integer :: i
     factorial = 1
