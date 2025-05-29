@@ -7,15 +7,11 @@ contains
     character(len=50), intent(out) :: nome, dia
     real*8, intent(out) :: K1, d, N, L, X
 
-    open(10, file='ENTRA3.TXT', status='old')
-    read(10, '(A)') nome
-    read(10, '(A)') dia
-    read(10,*) K1
-    read(10,*) d
-    read(10,*) N
-    read(10,*) L
-    read(10,*) X
-    close(10)
+    open(8, file='ENTRA3.TXT', status='old')
+    read(8, '(A)') nome
+    read(8, '(A)') dia
+    read(8,*) K1, d, N, L, X
+    close(8)
   end subroutine DADOS
 
   subroutine SERIES(d, X, M6, M7)

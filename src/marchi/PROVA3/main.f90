@@ -8,28 +8,26 @@ program PROVA3
    real*8 :: M1, M2, M3, M4, M5, M6, M7
    integer :: b, d, X, aux
    real*8 :: fat
+  ! Chamada à sub-rotina para obter os dados de entrada
+  call DADOS(Nome, Dia, K1, d, N, L, X)
 
-
- ! Chamada � sub-rotina para obter os dados de entrada
-   call DADOS(nome, dia, K1, d, N, L)
-
-   ! Impressão para conferência na consola
-   write(*,100) Nome
-   write(*,101) Dia
-   write(*,102) K1
-   write(*,103) d
-   write(*,104) N  ! Corrigido para usar o formato 104
-   write(*,105) L  ! Corrigido para usar o formato 105
-   write(*,106) X  ! Corrigido para usar o formato 106
+  ! Impressão para conferência na consola
+  write(*,100) Nome
+  write(*,101) Dia
+  write(*,102) K1
+  write(*,103) d
+  write(*,104) N  ! Corrigido para usar o formato 104
+  write(*,105) L  ! Corrigido para usar o formato 105
+  write(*,106) X  ! Corrigido para usar o formato 106
 
 
 
-! C�lculos matem�ticos
+  ! Cálculos matemáticos
    M1 = dexp(K1)
    M2 = dlog(d)   ! Converte 'd' para double precision antes do logaritmo
    M3 = dcosh(N)
 
-! C�lculo de M4 (S�rie)
+ ! Cálculo de M4 (Série)
    M4 = 0.d0
    do b = 0, int(d)
       M4 = M4 + (4.d0*(b-1)*(2*b+1))/(2*b+1)
@@ -43,6 +41,7 @@ program PROVA3
    end do
 ! (g) Calcular M6 e M7
    call SERIES(int(d), int(X), M6, M7)
+   
    close(20)
 
 ! Abrir ficheiro de saída
