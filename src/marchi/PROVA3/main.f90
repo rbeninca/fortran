@@ -9,7 +9,7 @@ program PROVA3
    real*8 :: fat
 
 
- ! Chamada à sub-rotina para obter os dados de entrada
+ ! Chamada ï¿½ sub-rotina para obter os dados de entrada
    call DADOS(nome, dia, K1, d, N, L)
 
    ! ImpressÃ£o para conferÃªncia na consola
@@ -23,12 +23,12 @@ program PROVA3
 
 
 
-! Cálculos matemáticos
+! Cï¿½lculos matemï¿½ticos
    M1 = dexp(K1)
    M2 = dlog(d)   ! Converte 'd' para double precision antes do logaritmo
    M3 = dcosh(N)
 
-! Cálculo de M4 (Série)
+! Cï¿½lculo de M4 (Sï¿½rie)
    M4 = 0.d0
    do b = 0, int(d)
       M4 = M4 + (4.d0*(b-1)*(2*b+1))/(2*b+1)
@@ -54,7 +54,7 @@ program PROVA3
    write(9,104) N
    write(9,105) L
    write(9,106) 20
-
+  ! Escrita dos resultados no ficheiro 
    write(9,100) Nome
    write(9,101) Dia
    write(9,102) K1
@@ -63,7 +63,9 @@ program PROVA3
    write(9,105) L
    write(9,106) X
 
-   CALL SYSTEM("start notepad OUT3.TXT")
+   CALL SYSTEM(" notepad OUT3.TXT")
+    ! Fechar ficheiro
+  close(9)
 
 ! FORMATs obrigatÃ³rios
 100 format('Nome = ', A50)
