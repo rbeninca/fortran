@@ -5,8 +5,7 @@ implicit none
 character(len=100) :: nome, dia
 real*8 :: K1, d, N, L, X, M1, M2, M3, M4, M5, M6, M7
 integer :: b, aux
-open(20, file='OUT3.TXT')
-
+open(20, file='OUT3.TXT',STATUS='UNKNOWN',ACTION='WRITE')
 call DADOS(nome, dia, K1, d, N, L, X)
 
 ! (a) Escrever dados
