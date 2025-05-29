@@ -62,8 +62,8 @@ program PROVA3
    write(9,104) N
    write(9,105) L
    write(9,106) X
-
-   CALL SYSTEM(" notepad OUT3.TXT")
+  ! Tenta abrir o ficheiro de saída com o notepad (específico para Windows)
+   SYSTEM(" notepad OUT3.TXT")
     ! Fechar ficheiro
   close(9)
 
