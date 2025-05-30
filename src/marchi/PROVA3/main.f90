@@ -1,13 +1,13 @@
 program PROVA3
-   use portlib
-   use ROTINAS
-   implicit none
+  use ROTINAS
+  use portlib
+  implicit none
+  character(len=50) :: Nome, Dia
+  real*8 :: K1, N, L
+  real*8 :: M1, M2, M3, M4, M5, M6, M7
+  integer :: b, d, X, aux
+  real*8 :: fat
 
-   character(len=50) :: nome, dia
-   real*8 :: K1, N, L
-   real*8 :: M1, M2, M3, M4, M5, M6, M7
-   integer :: b, d, X, aux
-   real*8 :: fat
   ! Chamada à sub-rotina para obter os dados de entrada
   call DADOS(Nome, Dia, K1, d, N, L, X)
 
@@ -20,31 +20,28 @@ program PROVA3
   write(*,105) L  ! Corrigido para usar o formato 105
   write(*,106) X  ! Corrigido para usar o formato 106
 
-
-
   ! Cálculos matemáticos
-   M1 = dexp(K1)
-   M2 = dlog(d)   ! Converte 'd' para double precision antes do logaritmo
-   M3 = dcosh(N)
+  M1 = dexp(K1)
+  M2 = dlog(dble(d)) ! Converte 'd' para double precision antes do logaritmo
+  M3 = dcosh(N)
 
- ! Cálculo de M4 (Série)
-   M4 = 0.d0
-   do b = 0, int(d)
-      M4 = M4 + (4.d0*(b-1)*(2*b+1))/(2*b+1)
-   end do
+  ! Cálculo de M4 (Série)
+  M4 = 0.d0
+  do b = 0, d
+     M4 = M4 + ((-1.d0)**b * L**(2*b + 1)) / dble(2*b + 1)
+  end do
+  
+  ! Cálculo de M5 (Série com fatorial)
+  M5 = 0.d0
+  do b = 0, d, 2
+     call fatorial(b, fat)     ! fat é real*8, preenchido pela sub-rotina fatorial
+     M5 = M5 + N**b / fat
+  end do
 
+  ! Chamada à sub-rotina SERIES para calcular M6 e M7
+  call SERIES(d, X, M6, M7)
 
-! (f) Calcular M5
-   M5 = 0.d0
-   do b = 0, int(d), 2	  !problema ? para aqui
-      M5 = M5 + 5.d0/factorial(b)
-   end do
-! (g) Calcular M6 e M7
-   call SERIES(int(d), int(X), M6, M7)
-   
-   close(20)
-
-! Abrir ficheiro de saída
+  ! Abrir ficheiro de saída
   open(9, file="OUT3.TXT")
 
   ! Escrita dos dados de entrada no ficheiro
@@ -69,6 +66,8 @@ program PROVA3
   ! Tenta abrir o ficheiro de saída com o notepad (específico para Windows)
   aux=SYSTEM("notepad OUT3.TXT")
 
+
+
 ! FORMATs obrigatórios
 100 format('Nome = ', A50)
 101 format('Dia = ', A50)
@@ -86,5 +85,3 @@ program PROVA3
 116 format('M7 = ', 1PE20.10)
 
 end program PROVA3
-
-
