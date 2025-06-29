@@ -4,6 +4,7 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WebSocketsServer.h>
+#include <FS.h>
 
 // Redes Wi-Fi
 const char* apSSID = "balancaESP";
@@ -31,85 +32,54 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
     if (msg == "t") {
       loadcell.tare();
       Serial.println(F("<4,Tara Realizada via WebSocket>"));
-    } else if (msg == "c") {
-      long sum = 0;
-      int validReadings = 0;
+    } else if (msg.startsWith("c:")) {
+      float massaReferencial = msg.substring(2).toFloat();
+      if (massaReferencial <= 0) return;
+      long soma = 0;
+      int leiturasValidas = 0;
       for (int i = 0; i < 1000; i++) {
         if (loadcell.is_ready()) {
-          sum += loadcell.read();
-          validReadings++;
+          soma += loadcell.read();
+          leiturasValidas++;
         }
         delay(1);
       }
-      if (validReadings > 0) {
-        long avg = sum / validReadings;
-        loadcell.set_offset(avg);
-        Serial.println(F("<5,Calibracao com media realizada>"));
+      if (leiturasValidas > 0) {
+        float media = soma / (float)leiturasValidas;
+        float novoFator = (media - loadcell.get_offset()) / massaReferencial;
+        loadcell.set_scale(novoFator);
+        conversionFactor = novoFator;
+        EEPROM.put(0, conversionFactor);
+        EEPROM.commit();
+        Serial.println(F("<6,Calibracao com massa conhecida realizada>"));
       }
     }
   }
 }
 
-void handlePage() {
-  String html = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset='UTF-8'>
-  <title>Balança ESP</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-  <h2>Leitura da Balança</h2>
-  <button onclick="enviarTara()">Tara</button>
-  <button onclick="enviarCalibracao()">Calibrar Zero (média)</button>
-  <button onclick="alternarUnidade()">Alternar unidade (g/N)</button>
-  <canvas id="grafico" width="400" height="200"></canvas>
-  <script>
-    const ctx = document.getElementById('grafico').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'line',
-      data: { labels: [], datasets: [{ label: 'Força', data: [] }] },
-      options: { scales: { x: { title: { display: true, text: 'Tempo (s)' } }, y: { beginAtZero: true } } }
-    });
+void handleFileRequest() {
+  String path = server.uri();
+  if (path == "/") path = "/index.html";
 
-    let mostrarNewton = false;
-    const ws = new WebSocket('ws://' + location.hostname + ':81/');
-    ws.onmessage = (event) => {
-      const d = JSON.parse(event.data);
-      const valor = mostrarNewton ? d.forca * 9.80665 : d.forca;
-      const unidade = mostrarNewton ? 'N' : 'g';
-      chart.data.labels.push(d.tempo);
-      chart.data.datasets[0].data.push(valor);
-      chart.data.datasets[0].label = 'Força (' + unidade + ')';
-      if (chart.data.labels.length > 200) {
-        chart.data.labels.shift();
-        chart.data.datasets[0].data.shift();
-      }
-      chart.update();
-    };
+  String contentType = "text/plain";
+  if (path.endsWith(".html")) contentType = "text/html";
+  else if (path.endsWith(".js")) contentType = "application/javascript";
+  else if (path.endsWith(".css")) contentType = "text/css";
 
-    function enviarTara() {
-      ws.send('t');
-    }
+  File file = SPIFFS.open(path, "r");
+  if (!file) {
+    server.send(404, "text/plain", "Arquivo não encontrado");
+    return;
+  }
 
-    function enviarCalibracao() {
-      ws.send('c');
-    }
-
-    function alternarUnidade() {
-      mostrarNewton = !mostrarNewton;
-    }
-  </script>
-</body>
-</html>
-  )rawliteral";
-  server.send(200, "text/html", html);
+  server.streamFile(file, contentType);
+  file.close();
 }
 
 void setup() {
   Serial.begin(115200);
   EEPROM.begin(512);
+  SPIFFS.begin();
 
   loadcell.begin(pinData, pinClock);
   while (!loadcell.is_ready()) delay(100);
@@ -141,7 +111,7 @@ void setup() {
     Serial.println("\nFalha ao conectar na rede STA");
   }
 
-  server.on("/", handlePage);
+  server.onNotFound(handleFileRequest);
   server.begin();
   Serial.println("Servidor HTTP iniciado na porta 80");
 

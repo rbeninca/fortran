@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Balança ESP8266 t</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 20px; }
+    canvas { max-width: 90%; height: 400px; }
+    button { margin: 10px; padding: 10px; font-size: 1rem; }
+  </style>
+</head>
+<body>
+  <h2>Balança ESP8266</h2>
+  <canvas id="grafico"></canvas>
+  <div>
+    <button onclick="tare()">Tara</button>
+    <button onclick="calibrar()">Calibrar com Massa</button>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
