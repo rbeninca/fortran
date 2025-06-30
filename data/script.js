@@ -9,7 +9,31 @@ window.onload = () => {
   chart = new Chart(ctx, {
     type: 'line',
     data: { labels: [], datasets: [{ label: 'Força (g)', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.4 }] },
-    options: { animation: false, responsive: true, scales: { x: { title: { display: true, text: 'Tempo (s)' } }, y: { title: { display: true, text: 'Força (g)' } } } }
+    options: { 
+      animation: false, 
+      responsive: true, 
+      scales: { 
+        x: { title: { display: true, text: 'Tempo (s)' } }, 
+        y: { title: { display: true, text: 'Força (g)' } } 
+      },
+      plugins: {
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'x',
+          },
+          zoom: {
+            wheel: {
+              enabled: true,
+            },
+            pinch: {
+              enabled: true,
+            },
+            mode: 'x',
+          }
+        }
+      }
+    }
   });
   conectarWebSocket();
 };
@@ -38,26 +62,51 @@ function conectarWebSocket() {
       }
     } catch (e) {
       console.error("Erro ao processar JSON:", e, event.data);
-      showNotification("error", "Falha ao ler dados do dispositivo. Formato inválido.", 10000);
     }
   };
 }
 
+// --- FUNÇÃO PARA FORMATAR A DATA ---
+function formatTimestamp(date) {
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    const milliseconds = date.getMilliseconds().toString().padStart(3, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}:${milliseconds}`;
+}
+
+// --- FUNÇÃO DE ATUALIZAÇÃO DA INTERFACE MODIFICADA ---
 function updateUI(dado) {
   document.getElementById('balanca-status').textContent = dado.status;
   if (chartMode === 'paused') return;
+
   const { labels, datasets } = chart.data;
-  labels.push(dado.tempo.toFixed(2));
+  
+  // Usa o tempo do ESP como rótulo do gráfico
+  const espTime = dado.tempo.toFixed(2);
+  labels.push(espTime);
   datasets[0].data.push(dado.forca.toFixed(3));
+
   if (chartMode === 'sliding' && labels.length > MAX_DATA_POINTS) {
     labels.shift();
     datasets[0].data.shift();
   }
   chart.update();
+
   const tbody = document.getElementById("tabela").querySelector("tbody");
   const linha = tbody.insertRow(0);
-  linha.insertCell(0).innerText = dado.tempo.toFixed(2);
-  linha.insertCell(1).innerText = dado.forca.toFixed(3);
+
+  // Captura e formata a data/hora local para a tabela
+  const timestamp = formatTimestamp(new Date());
+
+  // Adiciona a data/hora, o tempo de atividade e a força à tabela
+  linha.insertCell(0).innerText = timestamp;
+  linha.insertCell(1).innerText = espTime;
+  linha.insertCell(2).innerText = dado.forca.toFixed(3);
+
   if (tbody.rows.length > 200) tbody.deleteRow(200);
 }
 
@@ -118,8 +167,15 @@ function salvarRede(event) {
 
 function setChartMode(mode) {
     chartMode = mode;
-    document.querySelectorAll('.btn-group button.active').forEach(b => b.classList.remove('active'));
-    document.getElementById(`btn-${mode}`).classList.add('active');
+    const modeButtons = document.querySelectorAll('#abaGrafico .btn-group:first-of-type button');
+    modeButtons.forEach(b => {
+        b.classList.remove('bg-blue-500', 'text-white');
+        b.classList.add('bg-white', 'text-gray-900');
+    });
+    const activeButton = document.getElementById(`btn-${mode}`);
+    activeButton.classList.remove('bg-white', 'text-gray-900');
+    activeButton.classList.add('bg-blue-500', 'text-white');
+    
     if(mode === 'sliding' && chart.data.labels.length > MAX_DATA_POINTS) {
         chart.data.labels.splice(0, chart.data.labels.length - MAX_DATA_POINTS);
         chart.data.datasets[0].data.splice(0, chart.data.datasets[0].data.length - MAX_DATA_POINTS);
@@ -132,6 +188,10 @@ function clearChart() {
     chart.data.datasets[0].data = [];
     chart.update();
     showNotification("info", "Gráfico limpo.", 2000);
+}
+
+function resetChartZoom() {
+    chart.resetZoom();
 }
 
 function abrirAba(element, abaID) {

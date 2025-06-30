@@ -13,7 +13,7 @@ struct Config {
   char staSSID[32] = "BenincaGaspar";
   char staPassword[32] = "aabbccddee";
   float conversionFactor = 21000.0;
-  float gravity = 9.80665;
+  float gravity = 9.80665; 
   int leiturasEstaveis = 10;
   float toleranciaEstabilidade = 100.0;
   int numAmostrasMedia = 5;
