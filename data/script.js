@@ -1,234 +1,168 @@
 let chart;
 let socket;
-const MAX_DATA_POINTS = 100; // Limita os pontos no gráfico para melhor performance
+const MAX_DATA_POINTS = 100;
+let chartMode = 'sliding'; // 'sliding', 'continuous', 'paused'
 
-/**
- * Função de inicialização, chamada quando a página carrega.
- */
 window.onload = () => {
-  // Ativa a primeira aba por padrão
-  const defaultTab = document.getElementById("padrao");
-  abrirAba(defaultTab, 'abaGrafico');
-
-  // Configura o gráfico
+  abrirAba(document.getElementById("padrao"), 'abaGrafico');
   const ctx = document.getElementById("grafico").getContext("2d");
   chart = new Chart(ctx, {
     type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Força (g)',
-        data: [],
-        borderColor: '#3b82f6', // blue-500
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.4 // Deixa a linha mais suave
-      }]
-    },
-    options: {
-      animation: false,
-      responsive: true,
-      maintainAspectRatio: true,
-      scales: {
-        x: {
-          title: { display: true, text: 'Tempo (s)' }
-        },
-        y: {
-          title: { display: true, text: 'Força (g)' }
-        }
-      }
-    }
+    data: { labels: [], datasets: [{ label: 'Força (g)', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.4 }] },
+    options: { animation: false, responsive: true, scales: { x: { title: { display: true, text: 'Tempo (s)' } }, y: { title: { display: true, text: 'Força (g)' } } } }
   });
-
-  // Inicia a conexão WebSocket
   conectarWebSocket();
 };
 
-/**
- * Gerencia a conexão WebSocket, incluindo reconexão automática.
- */
 function conectarWebSocket() {
-  // Constrói a URL do WebSocket a partir da localização da página
   const wsURL = "ws://" + location.hostname + ":81";
-  console.log(`Conectando a ${wsURL}`);
   socket = new WebSocket(wsURL);
-
-  socket.onopen = () => {
-    console.log("WebSocket conectado!");
-    updateStatus(true);
-  };
-
-  socket.onclose = () => {
-    console.log("WebSocket desconectado. Tentando reconectar em 3 segundos...");
-    updateStatus(false);
-    // Tenta reconectar após um breve período
-    setTimeout(conectarWebSocket, 3000);
-  };
-
-  socket.onerror = (error) => {
-    console.error("Erro no WebSocket:", error);
-    updateStatus(false);
-  };
-
-  // Processa as mensagens recebidas do ESP8266
+  socket.onopen = () => updateConnectionStatus(true);
+  socket.onclose = () => { updateConnectionStatus(false); setTimeout(conectarWebSocket, 3000); };
+  socket.onerror = () => updateConnectionStatus(false);
   socket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
-
-      // Verifica o tipo de mensagem: dados da balança ou status
-      if (data.type === "data") {
-        updateUI(data);
-      } else if (data.type === "status") {
-        showNotification(data.status, data.message);
+      switch (data.type) {
+        case "data":
+          updateUI(data);
+          break;
+        case "status":
+          document.getElementById('notification-area').innerHTML = '';
+          const duration = (data.status === 'info') ? 0 : 7000;
+          showNotification(data.status, data.message, duration);
+          break;
+        case "config":
+          updateConfigForm(data);
+          break;
       }
     } catch (e) {
       console.error("Erro ao processar JSON:", e, event.data);
+      showNotification("error", "Falha ao ler dados do dispositivo. Formato inválido.", 10000);
     }
   };
 }
 
-/**
- * Atualiza o gráfico e a tabela com novos dados da balança.
- * @param {object} dado - O objeto de dados com 'tempo' e 'forca'.
- */
 function updateUI(dado) {
+  document.getElementById('balanca-status').textContent = dado.status;
+  if (chartMode === 'paused') return;
   const { labels, datasets } = chart.data;
-  
-  // Adiciona novos dados
   labels.push(dado.tempo.toFixed(2));
   datasets[0].data.push(dado.forca.toFixed(3));
-
-  // Remove dados antigos para manter o gráfico legível
-  if (labels.length > MAX_DATA_POINTS) {
+  if (chartMode === 'sliding' && labels.length > MAX_DATA_POINTS) {
     labels.shift();
     datasets[0].data.shift();
   }
   chart.update();
-
-  // Adiciona a nova leitura no topo da tabela
   const tbody = document.getElementById("tabela").querySelector("tbody");
-  let linha = tbody.insertRow(0); // Insere no topo
+  const linha = tbody.insertRow(0);
   linha.insertCell(0).innerText = dado.tempo.toFixed(2);
   linha.insertCell(1).innerText = dado.forca.toFixed(3);
-
-  // Limita o tamanho da tabela
-  if (tbody.rows.length > MAX_DATA_POINTS) {
-    tbody.deleteRow(MAX_DATA_POINTS);
-  }
+  if (tbody.rows.length > 200) tbody.deleteRow(200);
 }
 
-/**
- * Envia o comando de tara (zerar) para o WebSocket.
- */
-function tare() {
+function updateConfigForm(config) {
+  const getValue = (val) => (val != null ? val : '');
+  document.getElementById("ssid").value = getValue(config.ssid);
+  document.getElementById("senha").value = getValue(config.password);
+  document.getElementById("param-conversao").value = getValue(config.conversionFactor);
+  document.getElementById("param-gravidade").value = getValue(config.gravity);
+  document.getElementById("param-leituras-estaveis").value = getValue(config.leiturasEstaveis);
+  document.getElementById("param-tolerancia").value = getValue(config.toleranciaEstabilidade);
+  document.getElementById("param-num-amostras").value = getValue(config.numAmostrasMedia);
+  document.getElementById("param-timeout").value = getValue(config.timeoutCalibracao);
+}
+
+function sendCommand(cmd) {
   if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send("t");
+    socket.send(cmd);
   } else {
     showNotification("error", "Não conectado. Impossível enviar comando.");
   }
 }
 
-/**
- * Envia o comando de calibração para o WebSocket.
- */
+function tare() { sendCommand("t"); }
+
 function calibrar() {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    const massaInput = document.getElementById("massaCalibracao");
-    const massa = parseFloat(massaInput.value);
-    if (massa > 0) {
-      socket.send("c:" + massa);
-    } else {
-      showNotification("error", "Por favor, informe uma massa válida e positiva.");
-    }
+  const massaInput = document.getElementById("massaCalibracao");
+  const massa = parseFloat(massaInput.value).toFixed(5);
+  if (massa > 0) {
+    sendCommand("c:" + massa);
   } else {
-    showNotification("error", "Não conectado. Impossível enviar comando.");
+    showNotification("error", "Por favor, informe uma massa válida e positiva.");
   }
 }
 
-/**
- * Envia as novas credenciais de Wi-Fi para o ESP8266.
- * @param {Event} event - O evento do formulário.
- */
+function salvarParametros() {
+  const params = {
+    conversionFactor: document.getElementById("param-conversao").value,
+    gravity: document.getElementById("param-gravidade").value,
+    leiturasEstaveis: document.getElementById("param-leituras-estaveis").value,
+    toleranciaEstabilidade: document.getElementById("param-tolerancia").value,
+    numAmostrasMedia: document.getElementById("param-num-amostras").value,
+    timeoutCalibracao: document.getElementById("param-timeout").value,
+  };
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      sendCommand(`set_param:${key}:${value}`);
+    }
+  }
+}
+
 function salvarRede(event) {
   event.preventDefault();
-  const ssid = document.getElementById("ssid").value;
-  const senha = document.getElementById("senha").value;
-
-  fetch("/salvarRede", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `ssid=${encodeURIComponent(ssid)}&senha=${encodeURIComponent(senha)}`
-  })
-  .then(response => response.text())
-  .then(text => {
-    showNotification("success", text);
-  })
-  .catch(error => {
-    console.error("Erro ao salvar rede:", error);
-    showNotification("error", "Falha ao enviar configuração de rede.");
-  });
+  const form = new FormData(event.target);
+  fetch("/salvarRede", { method: "POST", body: new URLSearchParams(form) })
+    .then(r => r.text()).then(text => showNotification("success", text));
 }
 
-/**
- * Controla a exibição das abas.
- * @param {HTMLElement} element - O elemento do botão da aba clicado.
- * @param {string} abaID - O ID do conteúdo da aba a ser exibida.
- */
+function setChartMode(mode) {
+    chartMode = mode;
+    document.querySelectorAll('.btn-group button.active').forEach(b => b.classList.remove('active'));
+    document.getElementById(`btn-${mode}`).classList.add('active');
+    if(mode === 'sliding' && chart.data.labels.length > MAX_DATA_POINTS) {
+        chart.data.labels.splice(0, chart.data.labels.length - MAX_DATA_POINTS);
+        chart.data.datasets[0].data.splice(0, chart.data.datasets[0].data.length - MAX_DATA_POINTS);
+        chart.update();
+    }
+}
+
+function clearChart() {
+    chart.data.labels = [];
+    chart.data.datasets[0].data = [];
+    chart.update();
+    showNotification("info", "Gráfico limpo.", 2000);
+}
+
 function abrirAba(element, abaID) {
-  // Esconde todos os conteúdos
   document.querySelectorAll('.tabcontent').forEach(tab => tab.style.display = "none");
-  // Remove a classe 'active' de todos os links
-  document.querySelectorAll('.tablink').forEach(link => link.classList.remove('active'));
-  // Mostra o conteúdo da aba selecionada e ativa o link
+  document.querySelectorAll('.tablink').forEach(link => link.classList.remove('active', 'text-blue-600', 'border-blue-600'));
   document.getElementById(abaID).style.display = "block";
-  element.classList.add('active');
+  element.classList.add('active', 'text-blue-600', 'border-blue-600');
 }
 
-/**
- * Atualiza o indicador de status da conexão visual.
- * @param {boolean} isConnected - True se conectado, false caso contrário.
- */
-function updateStatus(isConnected) {
-  const indicator = document.getElementById('status-indicator');
-  const text = document.getElementById('status-text');
+function updateConnectionStatus(isConnected) {
+  const indicator = document.getElementById('ws-indicator');
+  const text = document.getElementById('ws-text');
   if (isConnected) {
-    indicator.classList.remove('bg-red-500');
-    indicator.classList.add('bg-green-500');
-    indicator.title = "Conectado";
+    indicator.classList.replace('bg-red-500', 'bg-green-500');
     text.textContent = "Conectado";
   } else {
-    indicator.classList.remove('bg-green-500');
-    indicator.classList.add('bg-red-500');
-    indicator.title = "Desconectado";
+    indicator.classList.replace('bg-green-500', 'bg-red-500');
     text.textContent = "Desconectado";
   }
 }
 
-/**
- * Exibe uma notificação na tela.
- * @param {string} type - Tipo de notificação ('success', 'error', 'info').
- * @param {string} message - A mensagem a ser exibida.
- */
-function showNotification(type, message) {
+function showNotification(type, message, duration = 7000) {
     const area = document.getElementById('notification-area');
-    const colorClasses = {
-        success: 'bg-green-100 border-green-500 text-green-700',
-        error: 'bg-red-100 border-red-500 text-red-700',
-        info: 'bg-blue-100 border-blue-500 text-blue-700'
-    };
-    
+    const color = { success: 'green', error: 'red', info: 'blue' }[type] || 'blue';
     const notification = document.createElement('div');
-    notification.className = `border-l-4 p-4 mb-2 rounded-md shadow ${colorClasses[type] || colorClasses['info']}`;
-    notification.setAttribute('role', 'alert');
+    notification.className = `bg-${color}-100 border-l-4 border-${color}-500 text-${color}-700 p-4 mb-2 rounded-md shadow`;
     notification.innerHTML = `<p class="font-bold">${type.charAt(0).toUpperCase() + type.slice(1)}</p><p>${message}</p>`;
-
     area.prepend(notification);
-
-    // Remove a notificação após 7 segundos
-    setTimeout(() => {
-        notification.style.transition = 'opacity 0.5s ease';
+    if(duration > 0) setTimeout(() => {
+        notification.style.transition = 'opacity 0.5s';
         notification.style.opacity = '0';
         setTimeout(() => notification.remove(), 500);
-    }, 7000);
+    }, duration);
 }

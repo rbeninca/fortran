@@ -5,225 +5,267 @@
 #include <ESP8266WebServer.h>
 #include <WebSocketsServer.h>
 #include <FS.h>
+#include <ArduinoJson.h> // Usando a biblioteca para criar JSON de forma segura.
 
-// ======== CONFIG Wi-Fi ========
+// ======== ESTRUTURA DE CONFIGURAÇÃO ========
+struct Config {
+  unsigned long magic_number = 123456789; // "Número mágico" para verificar a validade da EEPROM
+  char staSSID[32] = "BenincaGaspar";
+  char staPassword[32] = "aabbccddee";
+  float conversionFactor = 21000.0;
+  float gravity = 9.80665;
+  int leiturasEstaveis = 10;
+  float toleranciaEstabilidade = 100.0;
+  int numAmostrasMedia = 5;
+  unsigned long timeoutCalibracao = 20000;
+};
+
+Config config;
+
+// ======== CONSTANTES GLOBAIS ========
 const char* apSSID = "balancaESP";
 const char* apPassword = "";
-char staSSID[32] = "BenincaGaspar";
-char staPassword[32] = "aabbccddee";
+const uint8_t pinData = D2;
+const uint8_t pinClock = D1;
+const unsigned long READ_INTERVAL = 100;
 
-// ======== HX711 ========
-const uint8_t pinData = D2;   // GPIO4
-const uint8_t pinClock = D1;  // GPIO5
 HX711 loadcell;
-
-float conversionFactor;
-const unsigned long READ_INTERVAL = 100; // Aumentado para 100ms para reduzir a carga
-unsigned long lastReadTime = 0;
-float currentForce = 0.0;
-
-// ======== Servidor e WebSocket ========
 ESP8266WebServer server(80);
 WebSocketsServer webSocket(81);
 
-// Função auxiliar para enviar mensagens de status via WebSocket
-void broadcastStatus(const char* status, const char* message) {
-  String msg = "{\"type\":\"status\",\"status\":\"";
-  msg += status;
-  msg += "\",\"message\":\"";
-  msg += message;
-  msg += "\"}";
-  webSocket.broadcastTXT(msg);
+unsigned long lastReadTime = 0;
+String balancaStatus = "Iniciando...";
+
+// ======== FUNÇÕES DE SUPORTE ========
+void saveConfig() {
+  EEPROM.put(0, config);
+  EEPROM.commit();
+  Serial.println("Configuracao salva na EEPROM.");
 }
 
-// ======== WebSocket: comandos ========
+// --- FUNÇÃO DE CARREGAMENTO MELHORADA ---
+void loadConfig() {
+  EEPROM.get(0, config);
+  // Verifica se a configuração é válida. Se não, reseta para os padrões.
+  if (config.magic_number != 123456789 || config.leiturasEstaveis < 1 || config.leiturasEstaveis > 100) {
+    Serial.println("Configuracao invalida na EEPROM. Carregando valores padrao.");
+    config.magic_number = 123456789;
+    strcpy(config.staSSID, "BenincaGaspar");
+    strcpy(config.staPassword, "aabbccddee");
+    config.conversionFactor = 21000.0;
+    config.gravity = 9.80665;
+    config.leiturasEstaveis = 10;
+    config.toleranciaEstabilidade = 100.0;
+    config.numAmostrasMedia = 5;
+    config.timeoutCalibracao = 20000;
+    saveConfig();
+  } else {
+    Serial.println("Configuracao carregada com sucesso da EEPROM.");
+  }
+}
+
+void broadcastStatus(const char* status, const String& message) {
+  StaticJsonDocument<200> doc;
+  doc["type"] = "status";
+  doc["status"] = status;
+  doc["message"] = message;
+  String output;
+  serializeJson(doc, output);
+  webSocket.broadcastTXT(output);
+}
+
+// ======== WEBSOCKET ========
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size_t length) {
-  if (type != WStype_TEXT) return;
+  switch (type) {
+    case WStype_DISCONNECTED:
+      Serial.printf("[%u] Desconectado!\n", client_num);
+      break;
 
-  String msg = String((char*)payload);
-
-  if (msg == "t") {
-    loadcell.tare();
-    Serial.println(F("<4,Tara via WebSocket>"));
-    broadcastStatus("success", "Tara concluída!");
-  } else if (msg.startsWith("c:")) {
-    float massa = msg.substring(2).toFloat();
-    if (massa <= 0) {
-      broadcastStatus("error", "Massa de calibração deve ser maior que zero.");
-      return;
+    case WStype_CONNECTED: {
+      IPAddress ip = webSocket.remoteIP(client_num);
+      Serial.printf("[%u] Conectado de %d.%d.%d.%d\n", client_num, ip[0], ip[1], ip[2], ip[3]);
+      
+      StaticJsonDocument<512> doc;
+      doc["type"] = "config";
+      doc["ssid"] = config.staSSID;
+      doc["password"] = config.staPassword;
+      doc["conversionFactor"] = config.conversionFactor;
+      doc["gravity"] = config.gravity;
+      doc["leiturasEstaveis"] = config.leiturasEstaveis;
+      doc["toleranciaEstabilidade"] = config.toleranciaEstabilidade;
+      doc["numAmostrasMedia"] = config.numAmostrasMedia;
+      doc["timeoutCalibracao"] = config.timeoutCalibracao;
+      
+      String output;
+      serializeJson(doc, output);
+      webSocket.sendTXT(client_num, output);
+      break;
     }
 
-    // --- LÓGICA DE CALIBRAÇÃO COM ESTABILIDADE ---
-    Serial.println(F("Iniciando processo de calibração..."));
-    broadcastStatus("info", "Iniciando calibração... Por favor, aguarde o peso estabilizar.");
+    case WStype_TEXT: {
+      String msg = String((char*)payload);
+      balancaStatus = "Processando Comando";
 
-    const int LEITURAS_ESTAVEIS_NECESSARIAS = 20;
-    const float TOLERANCIA_ESTABILIDADE = 5.0; 
-    const int NUM_AMOSTRAS_CALIBRACAO = 50;
-    const unsigned long TIMEOUT_CALIBRACAO = 15000;
-
-    int leiturasEstaveis = 0;
-    long leituraAnterior = 0;
-    unsigned long inicioTimeout = millis();
-
-    while (leiturasEstaveis < LEITURAS_ESTAVEIS_NECESSARIAS) {
-      if (millis() - inicioTimeout > TIMEOUT_CALIBRACAO) {
-        Serial.println(F("<E,Erro: Timeout! A balança não estabilizou.>"));
-        broadcastStatus("error", "Erro: Timeout! A balança não estabilizou. Tente novamente.");
-        return;
-      }
-
-      if (loadcell.is_ready()) {
-        long leituraAtual = loadcell.read();
-        if (abs(leituraAtual - leituraAnterior) < TOLERANCIA_ESTABILIDADE) {
-          leiturasEstaveis++;
-        } else {
-          leiturasEstaveis = 0;
+      if (msg == "t") {
+        loadcell.tare();
+        broadcastStatus("success", "Tara concluída!");
+      } else if (msg.startsWith("c:")) {
+        float massa = msg.substring(2).toFloat();
+        if (massa <= 0) {
+          broadcastStatus("error", "Massa de calibração deve ser maior que zero.");
+          return;
         }
-        leituraAnterior = leituraAtual;
-      }
-      delay(50);
-    }
 
-    Serial.println(F("\nPeso estabilizado! Realizando leitura final..."));
-    broadcastStatus("info", "Peso estabilizado. Calculando fator...");
+        balancaStatus = "Calibrando";
+        broadcastStatus("info", "Iniciando calibração... Por favor, aguarde o peso estabilizar.");
 
-    long somaLeituras = 0;
-    int leiturasValidas = 0;
-    for (int i = 0; i < NUM_AMOSTRAS_CALIBRACAO; i++) {
-      if (loadcell.is_ready()) {
-        somaLeituras += loadcell.read();
-        leiturasValidas++;
+        unsigned long inicioTimeout = millis();
+        if (!loadcell.is_ready()) {
+            broadcastStatus("error", "Erro: Célula de carga não está pronta.");
+            return;
+        }
+        long leituraAnterior = loadcell.read_average(config.numAmostrasMedia);
+        int leiturasEstaveisCount = 0;
+
+        while (leiturasEstaveisCount < config.leiturasEstaveis) {
+          if (millis() - inicioTimeout > config.timeoutCalibracao) {
+            broadcastStatus("error", "Erro de Timeout! A balança não estabilizou. Verifique o peso e tente novamente.");
+            return;
+          }
+          if (loadcell.is_ready()) {
+            long leituraAtual = loadcell.read_average(config.numAmostrasMedia);
+            if (abs(leituraAtual - leituraAnterior) < config.toleranciaEstabilidade) leiturasEstaveisCount++;
+            else leiturasEstaveisCount = 0;
+            leituraAnterior = leituraAtual;
+          }
+          delay(100);
+        }
+
+        broadcastStatus("info", "Peso estabilizado. Calculando o fator...");
+        
+        // --- LÓGICA DE CALIBRAÇÃO COM DEPURAÇÃO ---
+        float mediaBruta = loadcell.read_average(20);
+        long offset = loadcell.get_offset();
+        float diferenca = mediaBruta - offset;
+
+        // Imprime os valores no Serial Monitor para diagnóstico
+        Serial.println("--- Dados de Diagnostico de Calibracao ---");
+        Serial.print("Leitura media com peso (mediaBruta): "); Serial.println(mediaBruta, 2);
+        Serial.print("Leitura de tara (offset): "); Serial.println(offset);
+        Serial.print("Diferenca (bruta - offset): "); Serial.println(diferenca, 2);
+        Serial.print("Massa conhecida (gramas): "); Serial.println(massa, 5);
+        
+        if (diferenca != 0) {
+          config.conversionFactor = diferenca / massa;
+          loadcell.set_scale(config.conversionFactor);
+          saveConfig();
+          
+          Serial.print("Novo Fator de Conversao Calculado: "); Serial.println(config.conversionFactor, 8);
+          Serial.println("---------------------------------------");
+
+          broadcastStatus("success", "Calibração concluída! Novo fator: " + String(config.conversionFactor, 8));
+        } else {
+          Serial.println("ERRO: Diferenca de leitura foi zero. Calibracao falhou.");
+          Serial.println("---------------------------------------");
+          broadcastStatus("error", "Erro: Leitura de calibração resultou em zero.");
+        }
+
+      } else if (msg.startsWith("set_param:")) {
+        int firstColon = msg.indexOf(':');
+        int secondColon = msg.indexOf(':', firstColon + 1);
+        String paramName = msg.substring(firstColon + 1, secondColon);
+        String paramValue = msg.substring(secondColon + 1);
+
+        bool changed = false;
+        if (paramName == "conversionFactor") { config.conversionFactor = paramValue.toFloat(); loadcell.set_scale(config.conversionFactor); changed = true; }
+        else if (paramName == "gravity") { config.gravity = paramValue.toFloat(); changed = true; }
+        else if (paramName == "leiturasEstaveis") { config.leiturasEstaveis = paramValue.toInt(); changed = true; }
+        else if (paramName == "toleranciaEstabilidade") { config.toleranciaEstabilidade = paramValue.toFloat(); changed = true; }
+        else if (paramName == "numAmostrasMedia") { config.numAmostrasMedia = paramValue.toInt(); changed = true; }
+        else if (paramName == "timeoutCalibracao") { config.timeoutCalibracao = paramValue.toInt(); changed = true; }
+        
+        if (changed) { saveConfig(); broadcastStatus("success", "Parâmetro '" + paramName + "' salvo!"); }
+        else { broadcastStatus("error", "Parâmetro desconhecido."); }
       }
-      delay(10);
-    }
-    
-    if (leiturasValidas > 0) {
-      float mediaBruta = (float)somaLeituras / leiturasValidas;
-      float novoFator = (mediaBruta - loadcell.get_offset()) / massa;
-      
-      loadcell.set_scale(novoFator);
-      conversionFactor = novoFator;
-      
-      EEPROM.put(0, conversionFactor);
-      EEPROM.commit();
-      
-      String successMsg = "Calibração concluída! Novo fator: " + String(novoFator, 4);
-      Serial.println(successMsg);
-      broadcastStatus("success", successMsg.c_str());
-    } else {
-      Serial.println(F("<E,Erro: Não foi possível ler para calibrar.>"));
-      broadcastStatus("error", "Erro: Não foi possível realizar a leitura para calibração.");
+      break;
     }
   }
 }
 
-// ======== Servir arquivos do SPIFFS ========
+// ======== SERVIDOR WEB ========
 void handleFileRequest() {
   String path = server.uri();
   if (path.endsWith("/")) path += "index.html";
-
   String contentType = "text/plain";
   if (path.endsWith(".html")) contentType = "text/html";
-  else if (path.endsWith(".js")) contentType = "application/javascript";
   else if (path.endsWith(".css")) contentType = "text/css";
-
+  else if (path.endsWith(".js")) contentType = "application/javascript";
+  else if (path.endsWith(".gz")) contentType = "application/x-gzip";
   if (SPIFFS.exists(path)) {
     File file = SPIFFS.open(path, "r");
     server.streamFile(file, contentType);
     file.close();
   } else {
-    server.send(404, "text/plain", "404: Arquivo Nao Encontrado");
+    server.send(404, "text/plain", "404: Not Found");
   }
 }
 
-// ======== Setup principal ========
+// ======== SETUP ========
 void setup() {
   Serial.begin(115200);
-  EEPROM.begin(512);
-  
-  if(!SPIFFS.begin()){
-    Serial.println("Erro ao montar SPIFFS");
-    return;
-  }
-
+  EEPROM.begin(sizeof(Config));
+  SPIFFS.begin();
+  loadConfig();
   loadcell.begin(pinData, pinClock);
-  while (!loadcell.is_ready()) delay(100);
-  
-  EEPROM.get(0, conversionFactor);
-  if (isnan(conversionFactor) || conversionFactor == 0) {
-    conversionFactor = 1.0;
-  }
-  loadcell.set_scale(conversionFactor);
-  loadcell.tare(); // Tara inicial
-
+  loadcell.set_scale(config.conversionFactor);
+  loadcell.tare();
+  balancaStatus = "Pronta";
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(apSSID, apPassword);
-  WiFi.begin(staSSID, staPassword);
-
-  Serial.println("AP IP: " + WiFi.softAPIP().toString());
+  WiFi.begin(config.staSSID, config.staPassword);
+  Serial.print("Conectando a rede...");
   unsigned long start = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
     delay(500);
     Serial.print(".");
   }
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nConectado a rede STA. IP: " + WiFi.localIP().toString());
-  } else {
-    Serial.println("\nFalha na conexao STA.");
-  }
+  if (WiFi.status() == WL_CONNECTED) { Serial.println("\nIP: " + WiFi.localIP().toString()); }
+  else { Serial.println("\nFalha na conexao."); }
 
-  // Roteamento
   server.on("/salvarRede", HTTP_POST, []() {
-    String ssid = server.arg("ssid");
-    String senha = server.arg("senha");
-    
-    // Para persistir, você deveria salvar ssid e senha na EEPROM aqui.
-    // E depois ler no setup().
-    
-    server.send(200, "text/plain", "Configuracao de rede recebida. O dispositivo sera reiniciado para aplicar.");
-    delay(1000);
-    ESP.restart();
+    strncpy(config.staSSID, server.arg("ssid").c_str(), sizeof(config.staSSID) - 1);
+    strncpy(config.staPassword, server.arg("senha").c_str(), sizeof(config.staPassword) - 1);
+    saveConfig();
+    server.send(200, "text/plain", "Rede salva. Reinicie o dispositivo para aplicar.");
   });
-
   server.onNotFound(handleFileRequest);
   server.begin();
-  Serial.println("Servidor HTTP iniciado");
-
   webSocket.begin();
   webSocket.onEvent(onWebSocketEvent);
-  Serial.println("WebSocket iniciado");
 }
 
-// ======== Loop principal ========
+// ======== LOOP ========
 void loop() {
   webSocket.loop();
   server.handleClient();
 
-  unsigned long currentTime = millis();
-  if (currentTime - lastReadTime >= READ_INTERVAL) {
-    if (loadcell.is_ready()) {
-      currentForce = loadcell.get_units(10); // Faz a média de 10 leituras para suavizar
-      String msg = "{";
-      msg += "\"type\":\"data\"";
-      msg += ",\"tempo\":" + String(currentTime / 1000.0, 2);
-      msg += ",\"forca\":" + String(currentForce, 3);
-      msg += "}";
-      webSocket.broadcastTXT(msg);
+  if (millis() - lastReadTime >= READ_INTERVAL) {
+    if (balancaStatus != "Calibrando") {
+        if (loadcell.is_ready()) {
+          balancaStatus = "Pesando";
+          float currentForce = loadcell.get_units(5);
+          StaticJsonDocument<200> doc;
+          doc["type"] = "data";
+          doc["tempo"] = millis() / 1000.0;
+          doc["forca"] = currentForce;
+          doc["status"] = balancaStatus;
+          String output;
+          serializeJson(doc, output);
+          webSocket.broadcastTXT(output);
+        } else {
+           balancaStatus = "Aguardando";
+        }
     }
-    lastReadTime = currentTime;
-  }
-
-  // Comandos via Serial (mantidos para depuração)
-  if (Serial.available()) {
-    char cmd = Serial.read();
-    switch (cmd) {
-      case 't':
-        loadcell.tare();
-        Serial.println(F("<4,Tara realizada>"));
-        break;
-      // outros comandos seriais...
-    }
-    while (Serial.available()) Serial.read();
+    lastReadTime = millis();
   }
 }
