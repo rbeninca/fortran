@@ -95,7 +95,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
       doc["toleranciaEstabilidade"] = config.toleranciaEstabilidade;
       doc["numAmostrasMedia"] = config.numAmostrasMedia;
       doc["timeoutCalibracao"] = config.timeoutCalibracao;
-      doc["tareOffset"] = config.tareOffset; // --- ADICIONADO: Envia o offset de tara atual ---
+      doc["tareOffset"] = config.tareOffset;
       
       String output;
       serializeJson(doc, output);
@@ -113,16 +113,15 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         saveConfig();
         broadcastStatus("success", "Tara concluída e salva!");
       } else if (msg.startsWith("c:")) {
-        // ETAPA 1: CALIBRAÇÃO COM PESO
-        float massa = msg.substring(2).toFloat();
-        if (massa <= 0) {
+        float massa_g = msg.substring(2).toFloat(); // Massa fornecida em gramas
+        if (massa_g <= 0) {
           broadcastStatus("error", "Massa de calibração deve ser maior que zero.");
           return;
         }
 
         balancaStatus = "Calibrando";
         broadcastStatus("info", "Iniciando calibração... Por favor, aguarde o peso estabilizar.");
-
+        delay(1000); // Pequena pausa para estabilizar a conexão
         unsigned long inicioTimeout = millis();
         if (!loadcell.is_ready()) {
             broadcastStatus("error", "Erro: Célula de carga não está pronta.");
@@ -132,6 +131,9 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         int leiturasEstaveisCount = 0;
 
         while (leiturasEstaveisCount < config.leiturasEstaveis) {
+          //informa status com numero de leituras feitas
+          String statusMsg = "Lendo peso... Leituras feitas: " + String(leiturasEstaveisCount) + "/" + String(config.leiturasEstaveis);
+          broadcastStatus("info", statusMsg);
           if (millis() - inicioTimeout > config.timeoutCalibracao) {
             broadcastStatus("error", "Erro de Timeout! A balança não estabilizou. Verifique o peso e tente novamente.");
             return;
@@ -155,12 +157,12 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
            return;
         }
 
-        config.conversionFactor = diferenca / massa;
+        // O fator de conversão é calculado para resultar em gramas
+        config.conversionFactor = diferenca / massa_g;
         loadcell.set_scale(config.conversionFactor);
 
-        // ETAPA 2: REGISTAR NOVA TARA
         broadcastStatus("info", "Fator calculado. Agora, REMOVA O PESO da balança para registrar o novo zero.");
-        delay(5000); // Pausa para o utilizador remover o peso
+        delay(5000);
 
         broadcastStatus("info", "A registrar nova tara... Por favor, aguarde.");
         balancaStatus = "Tarando";
@@ -169,8 +171,9 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         leituraAnterior = loadcell.read_average(config.numAmostrasMedia);
         leiturasEstaveisCount = 0;
         while (leiturasEstaveisCount < config.leiturasEstaveis) {
-          //status concatenado com numero de leituras estáveis
-          broadcastStatus("info", "Aguardando estabilização... Leituras estáveis: " + String(leiturasEstaveisCount));
+          //informa status com numero de leituras feitas
+          String statusMsg = "Registrando tara... Leituras feitas: " + String(leiturasEstaveisCount) + "/" + String(config.leiturasEstaveis);
+          broadcastStatus("info", statusMsg);
           if (millis() - inicioTimeout > config.timeoutCalibracao) {
             broadcastStatus("error", "Erro de Timeout ao registrar a tara. Tente a calibração novamente.");
             return;
@@ -188,7 +191,17 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         loadcell.set_offset(config.tareOffset);
         
         saveConfig();
-        broadcastStatus("success", "Calibração e nova tara concluídas com sucesso!");
+        //informar que a nova tara foi salva e que a calibração foi concluída e os valores configurados para a balança
+        String statusMsg = "Nova tara registrada com sucesso! Fator de conversão: " + String(config.conversionFactor, 2) + " g/N";
+        statusMsg += ", Gravidade: " + String(config.gravity, 2) + " m/s²";
+        statusMsg += ", Leituras estáveis: " + String(config.leiturasEstaveis);
+        statusMsg += ", Tolerância de estabilidade: " + String(config.toleranciaEstabilidade, 2) + " unidades";
+        statusMsg += ", Número de amostras para média: " + String(config.numAmostrasMedia);
+        statusMsg += ", Timeout de calibração: " + String(config.timeoutCalibracao) + " ms";
+        broadcastStatus("success", statusMsg);
+        balancaStatus = "Pronta";
+        Serial.println("Calibração e nova tara concluídas com sucesso!");
+        //broadcastStatus("success", "Calibração e nova tara concluídas com sucesso!");
 
       } else if (msg.startsWith("set_param:")) {
         int firstColon = msg.indexOf(':');
@@ -281,11 +294,15 @@ void loop() {
     if (balancaStatus != "Calibrando" && balancaStatus != "Tarando") {
         if (loadcell.is_ready()) {
           balancaStatus = "Pesando";
-          float currentForce = loadcell.get_units(5);
+          
+          // --- CONVERSÃO PARA NEWTONS ---
+          float mass_g = loadcell.get_units(5); // Obtém a massa em gramas
+          float force_N = (mass_g / 1000.0) * config.gravity; // Converte para Newtons (F = m * g)
+
           StaticJsonDocument<200> doc;
           doc["type"] = "data";
           doc["tempo"] = millis() / 1000.0;
-          doc["forca"] = currentForce;
+          doc["forca"] = force_N; // Envia o valor em Newtons
           doc["status"] = balancaStatus;
           String output;
           serializeJson(doc, output);

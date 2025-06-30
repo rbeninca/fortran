@@ -2,40 +2,32 @@ let chart;
 let socket;
 const MAX_DATA_POINTS = 100;
 let chartMode = 'deslizante'; // 'deslizante', 'acumulado', 'pausado'
-let maxForceSinceClear = -Infinity; // Variável para guardar a força máxima
+let displayUnit = 'N'; // Unidade de exibição padrão: 'N', 'gf', 'kgf'
+let maxForceInN = -Infinity; // Guarda sempre a força máxima na unidade base (Newtons)
+let rawDataN = []; // Guarda os dados brutos em Newtons para conversão
 
 window.onload = () => {
   abrirAba(document.getElementById("padrao"), 'abaGrafico');
   const ctx = document.getElementById("grafico").getContext("2d");
   chart = new Chart(ctx, {
     type: 'line',
-    data: { labels: [], datasets: [{ label: 'Força (g)', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.4 }] },
+    data: { labels: [], datasets: [{ label: 'Força', data: [], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 2, fill: true, tension: 0.4 }] },
     options: { 
       animation: false, 
       responsive: true, 
       scales: { 
         x: { title: { display: true, text: 'Tempo (s)' } }, 
-        y: { title: { display: true, text: 'Força (g)' } } 
+        y: { title: { display: true, text: 'Força (N)' } } 
       },
       plugins: {
         zoom: {
-          pan: {
-            enabled: true,
-            mode: 'x',
-          },
-          zoom: {
-            wheel: {
-              enabled: true,
-            },
-            pinch: {
-              enabled: true,
-            },
-            mode: 'x',
-          }
+          pan: { enabled: true, mode: 'x' },
+          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
         }
       }
     }
   });
+  setChartMode('deslizante'); // Garante que o estado inicial do botão corresponda à variável
   conectarWebSocket();
 };
 
@@ -67,30 +59,30 @@ function conectarWebSocket() {
   };
 }
 
-// --- FUNÇÃO PARA FORMATAR A DATA ---
-function formatTimestamp(date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const seconds = date.getSeconds().toString().padStart(2, '0');
-    const milliseconds = date.getMilliseconds().toString().padStart(3, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}:${milliseconds}`;
+// --- FUNÇÃO PARA CONVERTER VALORES DE FORÇA ---
+function convertForce(valueN, unit) {
+    if (unit === 'gf') return valueN * 101.97;
+    if (unit === 'kgf') return valueN * 0.10197;
+    return valueN; // Retorna em Newtons por padrão
 }
 
-// --- FUNÇÃO DE ATUALIZAÇÃO DA INTERFACE MODIFICADA ---
 function updateUI(dado) {
   document.getElementById('balanca-status').textContent = dado.status;
   
-  const forcaAtual = dado.forca;
+  const forceN = dado.forca;
+  rawDataN.push(forceN); // Armazena o dado bruto em Newtons
   
-  // Atualiza os painéis de força atual e máxima
-  document.getElementById('forca-atual').textContent = `${forcaAtual.toFixed(3)} g`;
-  if (forcaAtual > maxForceSinceClear) {
-      maxForceSinceClear = forcaAtual;
-      document.getElementById('forca-maxima').textContent = `${maxForceSinceClear.toFixed(3)} g`;
+  // Atualiza a força máxima (sempre comparando em N)
+  if (forceN > maxForceInN) {
+      maxForceInN = forceN;
   }
+  
+  // Converte os valores para a unidade de exibição selecionada
+  const displayForce = convertForce(forceN, displayUnit);
+  const maxDisplayForce = convertForce(maxForceInN, displayUnit);
+
+  document.getElementById('forca-atual').textContent = `${displayForce.toFixed(4)} ${displayUnit}`;
+  document.getElementById('forca-maxima').textContent = `${maxDisplayForce.toFixed(4)} ${displayUnit}`;
 
   if (chartMode === 'pausado') return;
 
@@ -98,9 +90,11 @@ function updateUI(dado) {
   
   const espTime = dado.tempo.toFixed(2);
   labels.push(espTime);
-  datasets[0].data.push(dado.forca.toFixed(3));
+  datasets[0].data.push(displayForce.toFixed(4));
 
-  if (chartMode === 'deslizante' && labels.length > MAX_DATA_POINTS) {
+  // Remove dados antigos
+  if (rawDataN.length > MAX_DATA_POINTS && chartMode === 'deslizante') {
+    rawDataN.shift();
     labels.shift();
     datasets[0].data.shift();
   }
@@ -114,11 +108,11 @@ function updateUI(dado) {
   const tbody = document.getElementById("tabela").querySelector("tbody");
   const linha = tbody.insertRow(0);
 
-  const timestamp = formatTimestamp(new Date());
+  const timestamp = new Date().toLocaleTimeString('pt-BR');
 
   linha.insertCell(0).innerText = timestamp;
   linha.insertCell(1).innerText = espTime;
-  linha.insertCell(2).innerText = dado.forca.toFixed(3);
+  linha.insertCell(2).innerText = displayForce.toFixed(4);
 
   if (tbody.rows.length > 200) tbody.deleteRow(200);
 }
@@ -179,10 +173,41 @@ function salvarRede(event) {
     .then(r => r.text()).then(text => showNotification("success", text));
 }
 
+function setDisplayUnit(unit) {
+    displayUnit = unit;
+    
+    // Atualiza os estilos dos botões de unidade
+    const unitButtons = document.querySelectorAll('#abaGrafico .btn-group:first-of-type button');
+    unitButtons.forEach(b => {
+        b.classList.remove('bg-blue-500', 'text-white');
+        b.classList.add('bg-white', 'text-gray-900');
+    });
+    const activeButton = document.getElementById(`btn-unit-${unit}`);
+    if(activeButton) {
+        activeButton.classList.remove('bg-white', 'text-gray-900');
+        activeButton.classList.add('bg-blue-500', 'text-white');
+    }
+
+    // Atualiza o título do eixo Y e da tabela
+    chart.options.scales.y.title.text = `Força (${unit})`;
+    chart.data.datasets[0].label = `Força (${unit})`;
+    document.getElementById('tabela-forca-header').textContent = `Força (${unit})`;
+
+    // Reconverte todos os dados existentes no gráfico
+    chart.data.datasets[0].data = rawDataN.map(forceN => convertForce(forceN, unit));
+    chart.update();
+
+    // Atualiza os painéis
+    const maxDisplayForce = convertForce(maxForceInN, displayUnit);
+    document.getElementById('forca-maxima').textContent = `${maxDisplayForce.toFixed(4)} ${displayUnit}`;
+    const currentForceN = rawDataN.length > 0 ? rawDataN[rawDataN.length-1] : 0;
+    const currentDisplayForce = convertForce(currentForceN, displayUnit);
+    document.getElementById('forca-atual').textContent = `${currentDisplayForce.toFixed(4)} ${displayUnit}`;
+}
+
 function setChartMode(mode) {
     chartMode = mode;
-    const modeButtons = document.querySelectorAll('#abaGrafico .btn-group:first-of-type button');
-    
+    const modeButtons = document.querySelectorAll('#abaGrafico .flex-col .btn-group button');
     modeButtons.forEach(b => {
         b.classList.remove('bg-blue-500', 'text-white');
         b.classList.add('bg-white', 'text-gray-900');
@@ -192,23 +217,17 @@ function setChartMode(mode) {
         activeButton.classList.remove('bg-white', 'text-gray-900');
         activeButton.classList.add('bg-blue-500', 'text-white');
     }
-    
-    if(mode === 'deslizante' && chart.data.labels.length > MAX_DATA_POINTS) {
-        chart.data.labels.splice(0, chart.data.labels.length - MAX_DATA_POINTS);
-        chart.data.datasets[0].data.splice(0, chart.data.datasets[0].data.length - MAX_DATA_POINTS);
-        chart.update();
-    }
 }
 
 function clearChart() {
     chart.data.labels = [];
     chart.data.datasets[0].data = [];
+    rawDataN = [];
     chart.update();
 
-    // Reseta os valores máximo e atual
-    maxForceSinceClear = -Infinity;
-    document.getElementById('forca-atual').textContent = '--- g';
-    document.getElementById('forca-maxima').textContent = '--- g';
+    maxForceInN = -Infinity;
+    document.getElementById('forca-atual').textContent = `--- ${displayUnit}`;
+    document.getElementById('forca-maxima').textContent = `--- ${displayUnit}`;
 
     showNotification("info", "Gráfico limpo.", 2000);
 }
