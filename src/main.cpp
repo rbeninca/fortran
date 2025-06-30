@@ -13,11 +13,12 @@ struct Config {
   char staSSID[32] = "BenincaGaspar";
   char staPassword[32] = "aabbccddee";
   float conversionFactor = 21000.0;
-  float gravity = 9.80665; 
+  float gravity = 9.80665;
   int leiturasEstaveis = 10;
   float toleranciaEstabilidade = 100.0;
   int numAmostrasMedia = 5;
   unsigned long timeoutCalibracao = 20000;
+  long tareOffset = 0; // Campo para guardar o valor da tara permanentemente
 };
 
 Config config;
@@ -43,10 +44,8 @@ void saveConfig() {
   Serial.println("Configuracao salva na EEPROM.");
 }
 
-// --- FUNÇÃO DE CARREGAMENTO MELHORADA ---
 void loadConfig() {
   EEPROM.get(0, config);
-  // Verifica se a configuração é válida. Se não, reseta para os padrões.
   if (config.magic_number != 123456789 || config.leiturasEstaveis < 1 || config.leiturasEstaveis > 100) {
     Serial.println("Configuracao invalida na EEPROM. Carregando valores padrao.");
     config.magic_number = 123456789;
@@ -58,6 +57,7 @@ void loadConfig() {
     config.toleranciaEstabilidade = 100.0;
     config.numAmostrasMedia = 5;
     config.timeoutCalibracao = 20000;
+    config.tareOffset = 0;
     saveConfig();
   } else {
     Serial.println("Configuracao carregada com sucesso da EEPROM.");
@@ -95,6 +95,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
       doc["toleranciaEstabilidade"] = config.toleranciaEstabilidade;
       doc["numAmostrasMedia"] = config.numAmostrasMedia;
       doc["timeoutCalibracao"] = config.timeoutCalibracao;
+      doc["tareOffset"] = config.tareOffset; // --- ADICIONADO: Envia o offset de tara atual ---
       
       String output;
       serializeJson(doc, output);
@@ -108,8 +109,11 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
 
       if (msg == "t") {
         loadcell.tare();
-        broadcastStatus("success", "Tara concluída!");
+        config.tareOffset = loadcell.get_offset();
+        saveConfig();
+        broadcastStatus("success", "Tara concluída e salva!");
       } else if (msg.startsWith("c:")) {
+        // ETAPA 1: CALIBRAÇÃO COM PESO
         float massa = msg.substring(2).toFloat();
         if (massa <= 0) {
           broadcastStatus("error", "Massa de calibração deve ser maior que zero.");
@@ -142,33 +146,49 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t * payload, size
         }
 
         broadcastStatus("info", "Peso estabilizado. Calculando o fator...");
-        
-        // --- LÓGICA DE CALIBRAÇÃO COM DEPURAÇÃO ---
         float mediaBruta = loadcell.read_average(20);
-        long offset = loadcell.get_offset();
-        float diferenca = mediaBruta - offset;
-
-        // Imprime os valores no Serial Monitor para diagnóstico
-        Serial.println("--- Dados de Diagnostico de Calibracao ---");
-        Serial.print("Leitura media com peso (mediaBruta): "); Serial.println(mediaBruta, 2);
-        Serial.print("Leitura de tara (offset): "); Serial.println(offset);
-        Serial.print("Diferenca (bruta - offset): "); Serial.println(diferenca, 2);
-        Serial.print("Massa conhecida (gramas): "); Serial.println(massa, 5);
+        long offsetAtual = loadcell.get_offset();
+        float diferenca = mediaBruta - offsetAtual;
         
-        if (diferenca != 0) {
-          config.conversionFactor = diferenca / massa;
-          loadcell.set_scale(config.conversionFactor);
-          saveConfig();
-          
-          Serial.print("Novo Fator de Conversao Calculado: "); Serial.println(config.conversionFactor, 8);
-          Serial.println("---------------------------------------");
-
-          broadcastStatus("success", "Calibração concluída! Novo fator: " + String(config.conversionFactor, 8));
-        } else {
-          Serial.println("ERRO: Diferenca de leitura foi zero. Calibracao falhou.");
-          Serial.println("---------------------------------------");
-          broadcastStatus("error", "Erro: Leitura de calibração resultou em zero.");
+        if (diferenca == 0) {
+           broadcastStatus("error", "Erro: Leitura de calibração resultou em zero.");
+           return;
         }
+
+        config.conversionFactor = diferenca / massa;
+        loadcell.set_scale(config.conversionFactor);
+
+        // ETAPA 2: REGISTAR NOVA TARA
+        broadcastStatus("info", "Fator calculado. Agora, REMOVA O PESO da balança para registrar o novo zero.");
+        delay(5000); // Pausa para o utilizador remover o peso
+
+        broadcastStatus("info", "A registrar nova tara... Por favor, aguarde.");
+        balancaStatus = "Tarando";
+        
+        inicioTimeout = millis();
+        leituraAnterior = loadcell.read_average(config.numAmostrasMedia);
+        leiturasEstaveisCount = 0;
+        while (leiturasEstaveisCount < config.leiturasEstaveis) {
+          //status concatenado com numero de leituras estáveis
+          broadcastStatus("info", "Aguardando estabilização... Leituras estáveis: " + String(leiturasEstaveisCount));
+          if (millis() - inicioTimeout > config.timeoutCalibracao) {
+            broadcastStatus("error", "Erro de Timeout ao registrar a tara. Tente a calibração novamente.");
+            return;
+          }
+          if (loadcell.is_ready()) {
+            long leituraAtual = loadcell.read_average(config.numAmostrasMedia);
+            if (abs(leituraAtual - leituraAnterior) < config.toleranciaEstabilidade) leiturasEstaveisCount++;
+            else leiturasEstaveisCount = 0;
+            leituraAnterior = leituraAtual;
+          }
+          delay(100);
+        }
+
+        config.tareOffset = loadcell.read_average(20);
+        loadcell.set_offset(config.tareOffset);
+        
+        saveConfig();
+        broadcastStatus("success", "Calibração e nova tara concluídas com sucesso!");
 
       } else if (msg.startsWith("set_param:")) {
         int firstColon = msg.indexOf(':');
@@ -218,7 +238,15 @@ void setup() {
   loadConfig();
   loadcell.begin(pinData, pinClock);
   loadcell.set_scale(config.conversionFactor);
-  loadcell.tare();
+  
+  if (config.tareOffset != 0) {
+    loadcell.set_offset(config.tareOffset);
+  } else {
+    loadcell.tare();
+    config.tareOffset = loadcell.get_offset();
+    saveConfig();
+  }
+
   balancaStatus = "Pronta";
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(apSSID, apPassword);
@@ -250,7 +278,7 @@ void loop() {
   server.handleClient();
 
   if (millis() - lastReadTime >= READ_INTERVAL) {
-    if (balancaStatus != "Calibrando") {
+    if (balancaStatus != "Calibrando" && balancaStatus != "Tarando") {
         if (loadcell.is_ready()) {
           balancaStatus = "Pesando";
           float currentForce = loadcell.get_units(5);

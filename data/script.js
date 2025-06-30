@@ -1,7 +1,8 @@
 let chart;
 let socket;
 const MAX_DATA_POINTS = 100;
-let chartMode = 'sliding'; // 'sliding', 'continuous', 'paused'
+let chartMode = 'deslizante'; // 'deslizante', 'acumulado', 'pausado'
+let maxForceSinceClear = -Infinity; // Variável para guardar a força máxima
 
 window.onload = () => {
   abrirAba(document.getElementById("padrao"), 'abaGrafico');
@@ -81,28 +82,40 @@ function formatTimestamp(date) {
 // --- FUNÇÃO DE ATUALIZAÇÃO DA INTERFACE MODIFICADA ---
 function updateUI(dado) {
   document.getElementById('balanca-status').textContent = dado.status;
-  if (chartMode === 'paused') return;
+  
+  const forcaAtual = dado.forca;
+  
+  // Atualiza os painéis de força atual e máxima
+  document.getElementById('forca-atual').textContent = `${forcaAtual.toFixed(3)} g`;
+  if (forcaAtual > maxForceSinceClear) {
+      maxForceSinceClear = forcaAtual;
+      document.getElementById('forca-maxima').textContent = `${maxForceSinceClear.toFixed(3)} g`;
+  }
+
+  if (chartMode === 'pausado') return;
 
   const { labels, datasets } = chart.data;
   
-  // Usa o tempo do ESP como rótulo do gráfico
   const espTime = dado.tempo.toFixed(2);
   labels.push(espTime);
   datasets[0].data.push(dado.forca.toFixed(3));
 
-  if (chartMode === 'sliding' && labels.length > MAX_DATA_POINTS) {
+  if (chartMode === 'deslizante' && labels.length > MAX_DATA_POINTS) {
     labels.shift();
     datasets[0].data.shift();
   }
-  chart.update();
+  
+  if (chartMode === 'acumulado') {
+    chart.update('none'); 
+  } else {
+    chart.update();
+  }
 
   const tbody = document.getElementById("tabela").querySelector("tbody");
   const linha = tbody.insertRow(0);
 
-  // Captura e formata a data/hora local para a tabela
   const timestamp = formatTimestamp(new Date());
 
-  // Adiciona a data/hora, o tempo de atividade e a força à tabela
   linha.insertCell(0).innerText = timestamp;
   linha.insertCell(1).innerText = espTime;
   linha.insertCell(2).innerText = dado.forca.toFixed(3);
@@ -120,6 +133,7 @@ function updateConfigForm(config) {
   document.getElementById("param-tolerancia").value = getValue(config.toleranciaEstabilidade);
   document.getElementById("param-num-amostras").value = getValue(config.numAmostrasMedia);
   document.getElementById("param-timeout").value = getValue(config.timeoutCalibracao);
+  document.getElementById("param-offset").textContent = getValue(config.tareOffset);
 }
 
 function sendCommand(cmd) {
@@ -168,15 +182,18 @@ function salvarRede(event) {
 function setChartMode(mode) {
     chartMode = mode;
     const modeButtons = document.querySelectorAll('#abaGrafico .btn-group:first-of-type button');
+    
     modeButtons.forEach(b => {
         b.classList.remove('bg-blue-500', 'text-white');
         b.classList.add('bg-white', 'text-gray-900');
     });
     const activeButton = document.getElementById(`btn-${mode}`);
-    activeButton.classList.remove('bg-white', 'text-gray-900');
-    activeButton.classList.add('bg-blue-500', 'text-white');
+    if (activeButton) {
+        activeButton.classList.remove('bg-white', 'text-gray-900');
+        activeButton.classList.add('bg-blue-500', 'text-white');
+    }
     
-    if(mode === 'sliding' && chart.data.labels.length > MAX_DATA_POINTS) {
+    if(mode === 'deslizante' && chart.data.labels.length > MAX_DATA_POINTS) {
         chart.data.labels.splice(0, chart.data.labels.length - MAX_DATA_POINTS);
         chart.data.datasets[0].data.splice(0, chart.data.datasets[0].data.length - MAX_DATA_POINTS);
         chart.update();
@@ -187,6 +204,12 @@ function clearChart() {
     chart.data.labels = [];
     chart.data.datasets[0].data = [];
     chart.update();
+
+    // Reseta os valores máximo e atual
+    maxForceSinceClear = -Infinity;
+    document.getElementById('forca-atual').textContent = '--- g';
+    document.getElementById('forca-maxima').textContent = '--- g';
+
     showNotification("info", "Gráfico limpo.", 2000);
 }
 
