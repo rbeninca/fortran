@@ -26,20 +26,21 @@ struct Config {
     char staSSID[32] = "BenincaGaspar";
     char staPassword[32] = "aabbccddee";
     float conversionFactor = 21000.0;
-    float gravity = 9.80665; // <-- Faltava este
+    float gravity = 9.80665;
     int leiturasEstaveis = 10;
     float toleranciaEstabilidade = 100.0;
-    int numAmostrasMedia = 10; // <-- Faltava este
-    unsigned long timeoutCalibracao = 30000; // <-- Faltava este
+    int numAmostrasMedia = 10;
+    unsigned long timeoutCalibracao = 30000;
     long tareOffset = 0;
 };
 Config config;
 
+
 // --- PINOS DO SENSOR DE PESO (LIVRES DE CONFLITO) ---
-const uint8_t pinVCC = D0; // VCC 
+
 const uint8_t pinData = D2;
 const uint8_t pinClock = D1;
-const uint8_t pinGND = D3; 
+
 //define o pino de alimentação do HX711 como D0 (GPIO16) para evitar conflitos com o I2C do display
 
 
@@ -51,7 +52,8 @@ String balancaStatus = "Iniciando...";
 float pesoAtual_g = 0.0;
 unsigned long lastReadTime = 0;
 
-// --- PROTÓTIPOS DE FUNÇÕES (PARA EVITAR ERROS DE ESCOPO) ---
+
+// --- PROTÓTIPOS DE FUNÇÕES ---
 void atualizarDisplay(String status, float peso_em_gramas);
 void saveConfig();
 void loadConfig();
@@ -66,26 +68,20 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
 // =======================================================
 void setup() {
     Serial.begin(115200);
-    Serial.println("\n\nBalança ESP8266 - Versão Final");
+    Serial.println("\n\nBalança ESP8266 - Versão Estável e Corrigida");
 
-    // --- INICIALIZAÇÃO CORRETA DO DISPLAY ---
-    Wire.begin(OLED_SDA, OLED_SCL); // O comando chave! Remapeia os pinos I2C para D5 e D6.
+    Wire.begin(OLED_SDA, OLED_SCL);
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-        Serial.println(F("Falha ao iniciar display Adafruit SSD1306. Verifique os pinos."));
-        for (;;); // Trava se o display não for encontrado
+        Serial.println(F("Falha ao iniciar display Adafruit SSD1306."));
+        for (;;);
     }
     atualizarDisplay("Iniciando...", 0);
 
-    // --- INICIALIZAÇÃO DO RESTANTE DO SISTEMA ---
     EEPROM.begin(sizeof(Config));
     SPIFFS.begin();
     loadConfig();
-    //Define pono  pinVCC com HIGH para alimentar o HX711
-    pinMode(pinVCC, OUTPUT);
-    digitalWrite(pinVCC, HIGH); // Alimenta o HX711
-    //Define o pino GND como OUTPUT e LOW para evitar conflitos
-    pinMode(pinGND, OUTPUT);
-    digitalWrite(pinGND, LOW); // GND do HX711
+    
+    // O bloco de alimentação por GPIO foi removido por segurança e estabilidade.
 
     Serial.println("Iniciando HX711 nos pinos D1 e D2...");
     loadcell.begin(pinData, pinClock);
@@ -129,8 +125,6 @@ void setup() {
     atualizarDisplay(balancaStatus, pesoAtual_g);
     Serial.println("\nSetup concluído. Balança pronta.");
 }
-
-
 // =======================================================
 // LOOP (CÓDIGO PRINCIPAL)
 // =======================================================
@@ -138,11 +132,11 @@ void loop() {
     webSocket.loop();
     server.handleClient();
 
-    if (millis() - lastReadTime >= 300) { // Um intervalo um pouco maior para estabilidade
+    if (millis() - lastReadTime >= 300) {
         lastReadTime = millis();
         
         if (balancaStatus.indexOf("Tarar") != -1 || balancaStatus.indexOf("Calibrar") != -1) {
-            return; // Não faz leitura normal durante calibração/tara
+            return;
         }
 
         if (loadcell.is_ready()) {
@@ -154,9 +148,9 @@ void loop() {
             
             StaticJsonDocument<200> doc;
             doc["type"] = "data";
-            doc["tempo"] = millis() / 1000.0; // <-- LINHA ADICIONADA
+            doc["tempo"] = millis() / 1000.0;
             doc["forca"] = pesoAtual_g / 1000.0;
-            doc["status"] = balancaStatus; // Envia o status também, para a interface ficar consistente
+            doc["status"] = balancaStatus;
             String output;
             serializeJson(doc, output);
             webSocket.broadcastTXT(output);
@@ -228,35 +222,48 @@ void broadcastStatus(const char *type, const String &message) {
 }
 
 bool aguardarEstabilidade(const String &proposito) {
-    balancaStatus = proposito;
     if (!loadcell.is_ready()) {
-        broadcastStatus("error", "Celula de carga nao esta pronta.");
+        broadcastStatus("error", "Célula de carga não pronta para iniciar.");
         return false;
     }
     
     unsigned long inicioTimeout = millis();
     long leituraAnterior = loadcell.read_average(10);
     int leiturasEstaveisCount = 0;
+    
     while (leiturasEstaveisCount < config.leiturasEstaveis) {
-        if (millis() - inicioTimeout > 30000) {
-            broadcastStatus("error", "Timeout! Nao estabilizou.");
+        // Verifica o timeout
+        if (millis() - inicioTimeout > 30000) { // Usando o timeout de 30s
+            broadcastStatus("error", "Timeout! A balança não estabilizou a tempo.");
+            balancaStatus = "Pronta"; // Reseta o status global após a falha
             return false;
         }
+
+        // Verifica se a célula está pronta DENTRO do loop
         if (loadcell.is_ready()) {
             long leituraAtual = loadcell.read_average(10);
             String statusProgresso = proposito + " (" + String(leiturasEstaveisCount + 1) + "/" + String(config.leiturasEstaveis) + ")";
-            atualizarDisplay(statusProgresso, 0);
             
+            // Usa a função broadcastStatus para atualizar TANTO o display OLED QUANTO a interface web
+            broadcastStatus("info", statusProgresso); 
+            
+            // Compara com a leitura anterior para ver se está estável
             if (abs(leituraAtual - leituraAnterior) < config.toleranciaEstabilidade) {
                 leiturasEstaveisCount++;
             } else {
+                // Se não estiver estável, reseta a contagem
                 leiturasEstaveisCount = 0;
             }
             leituraAnterior = leituraAtual;
+        } else {
+            // Se a célula ficar "não pronta", informa o usuário em vez de travar em silêncio
+            broadcastStatus("info", "Aguardando célula... (" + proposito + ")");
         }
-        delay(200);
+        
+        delay(200); // Delay para não sobrecarregar o processador e evitar reset
     }
-    broadcastStatus("success", "Estabilizado!");
+    
+    broadcastStatus("success", "Estabilizado para " + proposito + "!");
     return true;
 }
 
@@ -283,13 +290,10 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
         Serial.printf("[%u] Desconectado!\n", client_num);
         break;
     case WStype_CONNECTED: {
-         IPAddress ip = webSocket.remoteIP(client_num);
+        IPAddress ip = webSocket.remoteIP(client_num);
         Serial.printf("[%u] Conectado de %s\n", client_num, ip.toString().c_str());
-
-        StaticJsonDocument<512> doc; // Aumente o tamanho se necessário, mas 512 é seguro
+        StaticJsonDocument<512> doc;
         doc["type"] = "config";
-        
-        // --- ADICIONANDO TODOS OS PARÂMETROS ---
         doc["ssid"] = config.staSSID;
         doc["password"] = config.staPassword;
         doc["conversionFactor"] = config.conversionFactor;
@@ -299,7 +303,6 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
         doc["numAmostrasMedia"] = config.numAmostrasMedia;
         doc["timeoutCalibracao"] = config.timeoutCalibracao;
         doc["tareOffset"] = config.tareOffset;
-        
         String output;
         serializeJson(doc, output);
         webSocket.sendTXT(client_num, output);
@@ -308,7 +311,6 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
     case WStype_TEXT: {
         String msg = String((char *)payload);
 
-        // Lógica para ZERAR (TARA)
         if (msg == "t") {
             if (aguardarEstabilidade("Tarar")) {
                 loadcell.tare(20);
@@ -319,7 +321,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
                 broadcastStatus("error", "Falha ao tarar. Balança não estabilizou.");
             }
         } 
-        // Lógica para CALIBRAR
+        // LÓGICA DE CALIBRAÇÃO CORRIGIDA
         else if (msg.startsWith("c:")) {
             float massa_g = msg.substring(2).toFloat();
             if (massa_g <= 0) {
@@ -331,15 +333,17 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
                 return;
             }
             
-            long leituraComPeso = loadcell.get_units(20); // get_units já desconsidera a tara
-            config.conversionFactor = (float)leituraComPeso / massa_g;
+            // Lógica de cálculo corrigida
+            long leituraComPesoRaw = loadcell.read_average(20);
+            long offset = loadcell.get_offset();
+            config.conversionFactor = (float)(leituraComPesoRaw - offset) / massa_g;
+            
             loadcell.set_scale(config.conversionFactor);
             saveConfig();
             
             broadcastStatus("success", "Balança calibrada com sucesso!");
             balancaStatus = "Pronta";
         }
-        // Lógica para SALVAR PARÂMETROS (O TRECHO QUE FALTAVA)
         else if (msg.startsWith("set_param:")) {
             int firstColon = msg.indexOf(':');
             int secondColon = msg.indexOf(':', firstColon + 1);
@@ -347,35 +351,17 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
             String paramValue = msg.substring(secondColon + 1);
             bool changed = false;
 
-            if (paramName == "conversionFactor") {
-                config.conversionFactor = paramValue.toFloat();
-                loadcell.set_scale(config.conversionFactor);
-                changed = true;
-            } else if (paramName == "gravity") {
-                config.gravity = paramValue.toFloat();
-                changed = true;
-            } else if (paramName == "leiturasEstaveis") {
-                config.leiturasEstaveis = paramValue.toInt();
-                changed = true;
-            } else if (paramName == "toleranciaEstabilidade") {
-                config.toleranciaEstabilidade = paramValue.toFloat();
-                changed = true;
-            } else if (paramName == "numAmostrasMedia") {
-                config.numAmostrasMedia = paramValue.toInt();
-                changed = true;
-            } else if (paramName == "timeoutCalibracao") {
-                config.timeoutCalibracao = paramValue.toInt();
-                changed = true;
-            }
+            if (paramName == "conversionFactor") { config.conversionFactor = paramValue.toFloat(); loadcell.set_scale(config.conversionFactor); changed = true; }
+            else if (paramName == "gravity") { config.gravity = paramValue.toFloat(); changed = true; }
+            else if (paramName == "leiturasEstaveis") { config.leiturasEstaveis = paramValue.toInt(); changed = true; }
+            else if (paramName == "toleranciaEstabilidade") { config.toleranciaEstabilidade = paramValue.toFloat(); changed = true; }
+            else if (paramName == "numAmostrasMedia") { config.numAmostrasMedia = paramValue.toInt(); changed = true; }
+            else if (paramName == "timeoutCalibracao") { config.timeoutCalibracao = paramValue.toInt(); changed = true; }
 
-            if (changed) {
-                saveConfig();
-                broadcastStatus("success", "Parâmetro '" + paramName + "' salvo!");
-            } else {
-                broadcastStatus("error", "Parâmetro desconhecido.");
-            }
+            if (changed) { saveConfig(); broadcastStatus("success", "Parâmetro '" + paramName + "' salvo!"); }
+            else { broadcastStatus("error", "Parâmetro desconhecido."); }
         }
         break;
     }
     }
-}   
+}
