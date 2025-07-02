@@ -249,16 +249,31 @@ function setChartMode(mode) {
 }
 
 function clearChart() {
+    // Limpa os dados do gráfico
     chart.data.labels = [];
     chart.data.datasets[0].data = [];
     rawDataN = [];
     chart.update();
 
+    // Reseta os painéis de força
     maxForceInN = -Infinity;
     document.getElementById('forca-atual').textContent = `--- ${displayUnit}`;
     document.getElementById('forca-maxima').textContent = `--- ${displayUnit}`;
 
-    showNotification("info", "Gráfico limpo.", 2000);
+    // --- LINHA ADICIONADA ---
+    // Limpa o corpo da tabela
+    document.getElementById("tabela").querySelector("tbody").innerHTML = '';
+
+   // 4. --- LINHA ADICIONADA ---
+    // Reseta o zoom para garantir que a VISUALIZAÇÃO do gráfico seja limpa
+    chart.resetZoom(); 
+    
+    // 5. Opcional, mas garante: força a atualização final do gráfico (agora vazio e sem zoom)
+    chart.update();
+
+    // 6. Envia a notificação
+    showNotification("info", "Gráfico e tabela limpos.", 2000);
+}
 }
 
 function resetChartZoom() {
