@@ -48,6 +48,7 @@ window.onload = () => {
     }
   });
   setChartMode('deslizante');
+  carregarGravacoes(); // <-- NOVO: Carrega a lista de gravações ao iniciar
   conectarWebSocket();
 };
 
@@ -247,34 +248,19 @@ function setChartMode(mode) {
         activeButton.classList.add('bg-blue-500', 'text-white');
     }
 }
-
+// Função clearChart modificada para não limpar a tabela, apenas o gráfico.
 function clearChart() {
-    // Limpa os dados do gráfico
     chart.data.labels = [];
     chart.data.datasets[0].data = [];
     rawDataN = [];
-    chart.update();
-
-    // Reseta os painéis de força
     maxForceInN = -Infinity;
     document.getElementById('forca-atual').textContent = `--- ${displayUnit}`;
     document.getElementById('forca-maxima').textContent = `--- ${displayUnit}`;
-
-    // --- LINHA ADICIONADA ---
-    // Limpa o corpo da tabela
-    document.getElementById("tabela").querySelector("tbody").innerHTML = '';
-
-   // 4. --- LINHA ADICIONADA ---
-    // Reseta o zoom para garantir que a VISUALIZAÇÃO do gráfico seja limpa
-    chart.resetZoom(); 
-    
-    // 5. Opcional, mas garante: força a atualização final do gráfico (agora vazio e sem zoom)
+    chart.resetZoom();
     chart.update();
+    showNotification("info", "Dados da sessão atual limpos.", 2000);
+}
 
-    // 6. Envia a notificação
-    showNotification("info", "Gráfico e tabela limpos.", 2000);
-}
-}
 
 function resetChartZoom() {
     chart.resetZoom();
@@ -311,4 +297,168 @@ function showNotification(type, message, duration = 7000) {
         notification.style.opacity = '0';
         setTimeout(() => notification.remove(), 500);
     }, duration);
+}
+
+
+// =======================================================
+// --- NOVAS FUNÇÕES PARA GRAVAÇÃO ---
+// =======================================================
+
+
+/**
+ * Salva a sessão atual (gráfico e tabela) no Local Storage do navegador.
+ */
+/**
+ * Salva a sessão atual (gráfico e tabela) no Local Storage do navegador.
+ */
+function salvarGravacao() {
+    // Pega o nome do campo de input na página
+    const nomeInput = document.getElementById('nome-gravacao');
+    const nome = nomeInput.value.trim(); // Pega o valor e remove espaços em branco
+
+    // Se o usuário não digitou nada, avisa e para a função.
+    if (!nome) {
+        showNotification('error', 'Por favor, digite um nome para a gravação.', 3000);
+        nomeInput.focus(); // Coloca o cursor no campo de nome
+        return;
+    }
+
+    const dadosTabela = [];
+    const tabela = document.getElementById("tabela").querySelector("tbody");
+    
+    if (tabela.rows.length === 0) {
+        showNotification('error', 'Não há dados na tabela para salvar.', 3000);
+        return;
+    }
+
+    for (const linha of tabela.rows) {
+        dadosTabela.push({
+            timestamp: linha.cells[0].innerText,
+            tempo_esp: linha.cells[1].innerText,
+            newtons: linha.cells[2].innerText,
+            grama_forca: linha.cells[3].innerText,
+            quilo_forca: linha.cells[4].innerText,
+        });
+    }
+
+    const imagemGrafico = chart.toBase64Image();
+
+    // Adiciona o nome ao objeto da gravação
+    const gravacao = {
+        id: Date.now(),
+        nome: nome,
+        timestamp: new Date().toISOString(),
+        dadosTabela: dadosTabela.reverse(),
+        imagemGrafico: imagemGrafico
+    };
+
+    try {
+        let gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
+        gravacoes.push(gravacao);
+        localStorage.setItem('balancaGravacoes', JSON.stringify(gravacoes));
+        showNotification('success', `Gravação "${nome}" salva com sucesso!`);
+        carregarGravacoes();
+        nomeInput.value = ''; // Limpa o campo de nome após salvar
+    } catch (e) {
+        console.error("Erro ao salvar no Local Storage:", e);
+        showNotification('error', 'Erro ao salvar. O Local Storage pode estar cheio.');
+    }
+}
+
+/**
+ * Lê as gravações do Local Storage e as exibe na aba "Gravações".
+ */
+function carregarGravacoes() {
+    const container = document.getElementById('lista-gravacoes');
+    const gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
+    container.innerHTML = '';
+
+    if (gravacoes.length === 0) {
+        container.innerHTML = '<p class="text-gray-500">Nenhuma gravação encontrada.</p>';
+        return;
+    }
+    
+    gravacoes.reverse().forEach(gravacao => {
+        const dataFormatada = new Date(gravacao.timestamp).toLocaleString('pt-BR');
+        const card = document.createElement('div');
+        card.className = 'flex flex-col sm:flex-row items-center justify-between p-4 border rounded-lg';
+        // Usa o nome salvo na gravação
+        card.innerHTML = `
+            <div class="flex-grow mb-2 sm:mb-0">
+                <p class="font-semibold">${gravacao.nome}</p> 
+                <p class="text-sm text-gray-600">Salvo em: ${dataFormatada} (${gravacao.dadosTabela.length} leituras)</p>
+            </div>
+            <div class="flex-shrink-0 flex gap-2">
+                <button onclick="exportarCSV(${gravacao.id})" class="px-3 py-2 text-sm font-medium text-white bg-green-500 rounded-md hover:bg-green-600">Exportar CSV</button>
+                <button onclick="salvarImagemGrafico(${gravacao.id})" class="px-3 py-2 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600">Salvar Gráfico</button>
+                <button onclick="deletarGravacao(${gravacao.id})" class="px-3 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600">Deletar</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+/**
+ * Exporta os dados de uma gravação específica para um arquivo CSV.
+ * @param {number} id O ID da gravação a ser exportada.
+ */
+function exportarCSV(id) {
+    const gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
+    const gravacao = gravacoes.find(g => g.id === id);
+
+    if (!gravacao) {
+        showNotification('error', 'Gravação não encontrada.');
+        return;
+    }
+
+    // Cria o cabeçalho e as linhas do CSV
+    const cabecalho = Object.keys(gravacao.dadosTabela[0]).join(',');
+    const linhas = gravacao.dadosTabela.map(linha => Object.values(linha).join(','));
+    const conteudoCSV = `${cabecalho}\n${linhas.join('\n')}`;
+
+    // Cria e dispara o download
+    const blob = new Blob([conteudoCSV], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', `gravacao_balanca_${id}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * Inicia o download da imagem do gráfico de uma gravação.
+ * @param {number} id O ID da gravação.
+ */
+function salvarImagemGrafico(id) {
+    const gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
+    const gravacao = gravacoes.find(g => g.id === id);
+
+    if (!gravacao) {
+        showNotification('error', 'Gravação não encontrada.');
+        return;
+    }
+
+    const link = document.createElement('a');
+    link.href = gravacao.imagemGrafico;
+    link.setAttribute('download', `grafico_balanca_${id}.png`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+/**
+ * Deleta uma gravação específica do Local Storage.
+ * @param {number} id O ID da gravação a ser deletada.
+ */
+function deletarGravacao(id) {
+    if (!confirm('Tem certeza que deseja deletar esta gravação? Esta ação não pode ser desfeita.')) {
+        return;
+    }
+    
+    let gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
+    const novasGravacoes = gravacoes.filter(g => g.id !== id);
+    localStorage.setItem('balancaGravacoes', JSON.stringify(novasGravacoes));
+    
+    showNotification('info', 'Gravação deletada.');
+    carregarGravacoes(); // Atualiza a lista
 }

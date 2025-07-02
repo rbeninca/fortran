@@ -75,6 +75,8 @@
         <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
           onclick="abrirAba(this, 'abaTabela')">📋 Tabela</button>
         <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+          onclick="abrirAba(this, 'abaGravacoes')">💾 Gravações</button>
+        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
           onclick="abrirAba(this, 'abaControles')">⚙️ Parâmetros</button>
         <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
           onclick="abrirAba(this, 'abaConfig')">📡 Rede Wi-Fi</button>
@@ -121,13 +123,24 @@
             <button id="btn-pausado" onclick="setChartMode('pausado')"
               class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100">Pausar</button>
           </div>
-          <div class="inline-flex rounded-md shadow-sm" role="group">
-            <button onclick="clearChart()"
-              class="px-4 py-2 text-sm font-medium text-white bg-red-500 border border-red-500 rounded-l-lg hover:bg-red-600">Limpar</button>
-            <button onclick="resetChartZoom()"
-              class="px-4 py-2 text-sm font-medium text-white bg-gray-500 border border-gray-500 rounded-r-lg hover:bg-gray-600">Resetar
-              Zoom</button>
+          <div class="flex flex-wrap items-center justify-center gap-4">
+            <div class="inline-flex rounded-md shadow-sm" role="group">
+              <button onclick="clearChart()"
+                class="px-4 py-2 text-sm font-medium text-white bg-red-500 border border-red-500 rounded-l-lg hover:bg-red-600">Limpar
+                Sessão</button>
+              <button onclick="resetChartZoom()"
+                class="px-4 py-2 text-sm font-medium text-white bg-gray-500 border border-gray-500 rounded-r-lg hover:bg-gray-600">Resetar
+                Zoom</button>
+            </div>
+            <div class="flex items-center gap-2 p-2 border rounded-lg">
+              <input type="text" id="nome-gravacao" placeholder="Nome do ensaio..."
+                class="px-3 py-1 border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500">
+              <button onclick="salvarGravacao()"
+                class="px-4 py-2 text-sm font-medium text-white bg-indigo-500 rounded-lg hover:bg-indigo-600">Salvar
+                Gravação</button>
+            </div>
           </div>
+
         </div>
         <!-- Canvas do Gráfico -->
         <canvas id="grafico"></canvas>
@@ -214,6 +227,17 @@
             class="mt-6 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow">Salvar Todos
             os Parâmetros</button>
         </section>
+      </div>
+
+      <div id="abaGravacoes" class="tabcontent hidden bg-white p-6 rounded-lg shadow space-y-4">
+        <h2 class="text-xl font-semibold mb-2">Gravações Salvas no Navegador</h2>
+        <p class="text-sm text-gray-500 mb-4">
+          Estas gravações estão salvas apenas no Local Storage deste navegador. Elas não são enviadas para o ESP ou para
+          a nuvem.
+        </p>
+        <div id="lista-gravacoes" class="space-y-3">
+          <p>Nenhuma gravação encontrada.</p>
+        </div>
       </div>
 
       <div id="abaConfig" class="tabcontent hidden bg-white p-6 rounded-lg shadow space-y-8">
