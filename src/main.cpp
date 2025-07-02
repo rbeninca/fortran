@@ -39,8 +39,8 @@ Config config;
 // --- PINOS DO SENSOR DE PESO (LIVRES DE CONFLITO) ---
 // const uint8_t pinVCC = D1;   //HIGH
 // const uint8_t pinGND = D4;    //LOW
-const uint8_t pinData =D3 ;
-const uint8_t pinClock = D2;
+const uint8_t pinData =D7 ;
+const uint8_t pinClock = D8;
 
 //define o pino de alimentação do HX711 como D0 (GPIO16) para evitar conflitos com o I2C do display
 
