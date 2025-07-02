@@ -37,8 +37,8 @@ Config config;
 
 
 // --- PINOS DO SENSOR DE PESO (LIVRES DE CONFLITO) ---
-const uint8_t pinVCC = D1;   //HIGH
-const uint8_t pinGND = D4;    //LOW
+// const uint8_t pinVCC = D1;   //HIGH
+// const uint8_t pinGND = D4;    //LOW
 const uint8_t pinData =D3 ;
 const uint8_t pinClock = D2;
 
@@ -83,10 +83,10 @@ void setup() {
     loadConfig();
     
     // O bloco de alimentação por GPIO foi removido por segurança e estabilidade.
-    pinMode(pinVCC, OUTPUT);
-    pinMode(pinGND, OUTPUT);
-    digitalWrite(pinVCC, HIGH); // Liga o VCC do HX711
-    digitalWrite(pinGND, LOW);  // Liga o GND do HX711
+    // pinMode(pinVCC, OUTPUT);
+    // pinMode(pinGND, OUTPUT);
+    // digitalWrite(pinVCC, HIGH); // Liga o VCC do HX711
+    // digitalWrite(pinGND, LOW);  // Liga o GND do HX711
 
     Serial.println("Iniciando HX711 nos pinos D1 e D2...");
     loadcell.begin(pinData, pinClock);
