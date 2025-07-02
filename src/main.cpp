@@ -7,17 +7,16 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <WebSocketsServer.h>
-#include <FS.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
 
-// --- CONFIGURAÇÃO CORRETA DO DISPLAY (DO FABRICANTE) ---
+// --- CONFIGURAÇÃO DO DISPLAY ---
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 #define SCREEN_ADDRESS 0x3C
-// Pinos não-padrão para o display I2C. A chamada Wire.begin() vai usá-los.
-#define OLED_SDA 14 // GPIO14 -> D5 na placa
-#define OLED_SCL 12 // GPIO12 -> D6 na placa
+#define OLED_SDA 14 // GPIO14 -> D5
+#define OLED_SCL 12 // GPIO12 -> D6
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // --- ESTRUTURA DE CONFIGURAÇÃO ---
@@ -35,24 +34,20 @@ struct Config {
 };
 Config config;
 
-
-// --- PINOS DO SENSOR DE PESO (LIVRES DE CONFLITO) ---
-// const uint8_t pinVCC = D1;   //HIGH
-// const uint8_t pinGND = D4;    //LOW
-const uint8_t pinData =D7 ;
+// --- PINOS DO SENSOR DE PESO (CONFORME SOLICITADO) ---
+// ATENÇÃO: Esta abordagem de alimentar o sensor por GPIOs é instável e não recomendada.
+// const uint8_t pinVCC = D1;
+// const uint8_t pinGND = D4;
+const uint8_t pinData = D7;
 const uint8_t pinClock = D8;
 
-//define o pino de alimentação do HX711 como D0 (GPIO16) para evitar conflitos com o I2C do display
-
-
-// --- OBJETOS E VARIÁVEIS GLOBAIS ---
+// --- OBJETOS GLOBAIS ---
 HX711 loadcell;
 ESP8266WebServer server(80);
 WebSocketsServer webSocket(81);
 String balancaStatus = "Iniciando...";
 float pesoAtual_g = 0.0;
 unsigned long lastReadTime = 0;
-
 
 // --- PROTÓTIPOS DE FUNÇÕES ---
 void atualizarDisplay(String status, float peso_em_gramas);
@@ -63,32 +58,59 @@ bool aguardarEstabilidade(const String &proposito);
 void handleFileRequest();
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_t length);
 
-
 // =======================================================
-// SETUP (CONFIGURAÇÃO INICIAL)
+// SETUP
 // =======================================================
 void setup() {
     Serial.begin(115200);
-    Serial.println("\n\nBalança ESP8266 - Versão Estável e Corrigida");
+    Serial.println("\nBalança ESP8266 - Versão Final");
 
+    // 1. Inicializa o display
     Wire.begin(OLED_SDA, OLED_SCL);
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-        Serial.println(F("Falha ao iniciar display Adafruit SSD1306."));
+        Serial.println(F("Falha ao iniciar display."));
         for (;;);
     }
     atualizarDisplay("Iniciando...", 0);
 
+    // 2. Inicia sistema de arquivos e configurações
+    if(!LittleFS.begin()){ Serial.println("Erro ao montar LittleFS."); return; }
     EEPROM.begin(sizeof(Config));
-    SPIFFS.begin();
     loadConfig();
-    
-    // O bloco de alimentação por GPIO foi removido por segurança e estabilidade.
-    // pinMode(pinVCC, OUTPUT);
-    // pinMode(pinGND, OUTPUT);
-    // digitalWrite(pinVCC, HIGH); // Liga o VCC do HX711
-    // digitalWrite(pinGND, LOW);  // Liga o GND do HX711
 
-    Serial.println("Iniciando HX711 nos pinos D1 e D2...");
+    // 3. Inicializa servidores de Rede (antes de hardware sensível)
+    WiFi.mode(WIFI_AP_STA);
+    WiFi.softAP("balancaESP", "");
+    WiFi.begin(config.staSSID, config.staPassword);
+    Serial.print("Conectando ao WiFi");
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+        delay(500); Serial.print(".");
+    }
+    Serial.println(WiFi.status() == WL_CONNECTED ? "\nConectado!" : "\nFalha ao conectar.");
+
+    server.onNotFound(handleFileRequest);
+    server.on("/salvarRede", HTTP_POST, []() {
+        strncpy(config.staSSID, server.arg("ssid").c_str(), sizeof(config.staSSID) - 1);
+        strncpy(config.staPassword, server.arg("senha").c_str(), sizeof(config.staPassword) - 1);
+        saveConfig();
+        server.send(200, "text/plain", "Rede salva. Reinicie o dispositivo.");
+    });
+    server.begin();
+    webSocket.onEvent(onWebSocketEvent);
+    webSocket.begin();
+    Serial.println("Servidores Web e WebSocket iniciados.");
+
+    // 4. ATIVA A ALIMENTAÇÃO DO SENSOR VIA GPIO (Conforme solicitado)
+    Serial.println("ATENCAO: Ativando alimentacao do sensor via GPIO (instavel).");
+    // pinMode(pinVCC, OUTPUT);
+    // digitalWrite(pinVCC, HIGH);
+    // pinMode(pinGND, OUTPUT);
+    // digitalWrite(pinGND, LOW);
+    delay(200); // Pausa para a alimentação do sensor estabilizar
+
+    // 5. Inicializa o sensor
+    Serial.println("Iniciando HX711 nos pinos D7 e D8...");
     loadcell.begin(pinData, pinClock);
     loadcell.set_scale(config.conversionFactor);
     loadcell.set_offset(config.tareOffset);
@@ -102,36 +124,13 @@ void setup() {
             Serial.println("FALHA na tara inicial.");
         }
     }
-
-    atualizarDisplay("Conectando WiFi...", 0);
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.softAP("balancaESP", "");
-    WiFi.begin(config.staSSID, config.staPassword);
     
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
-        delay(500);
-        Serial.print(".");
-    }
-
-    server.on("/salvarRede", HTTP_POST, []() {
-        strncpy(config.staSSID, server.arg("ssid").c_str(), sizeof(config.staSSID) - 1);
-        strncpy(config.staPassword, server.arg("senha").c_str(), sizeof(config.staPassword) - 1);
-        saveConfig();
-        server.send(200, "text/plain", "Rede salva. Reinicie.");
-    });
-    server.onNotFound(handleFileRequest);
-    server.begin();
-
-    webSocket.onEvent(onWebSocketEvent);
-    webSocket.begin();
-
     balancaStatus = "Pronta";
     atualizarDisplay(balancaStatus, pesoAtual_g);
-    Serial.println("\nSetup concluído. Balança pronta.");
+    Serial.println("\nSetup concluído. Balança pronta para uso.");
 }
 // =======================================================
-// LOOP (CÓDIGO PRINCIPAL)
+// LOOP
 // =======================================================
 void loop() {
     webSocket.loop();
@@ -139,25 +138,18 @@ void loop() {
 
     if (millis() - lastReadTime >= 300) {
         lastReadTime = millis();
-        
-        if (balancaStatus.indexOf("Tarar") != -1 || balancaStatus.indexOf("Calibrar") != -1) {
-            return;
-        }
+        if (balancaStatus.indexOf("Tarar") != -1 || balancaStatus.indexOf("Calibrar") != -1) return;
 
         if (loadcell.is_ready()) {
             balancaStatus = "Pesando";
             pesoAtual_g = loadcell.get_units(5);
-            if (config.conversionFactor < 0) {
-                pesoAtual_g *= -1;
-            }
+            if (config.conversionFactor < 0) { pesoAtual_g *= -1; }
             
-            StaticJsonDocument<200> doc;
-
-            
+            StaticJsonDocument<256> doc;
             doc["type"] = "data";
             doc["tempo"] = millis() / 1000.0;
-            // Converte a massa (em kg) para força (em Newtons) usando F = m * g
-            doc["forca"] = (pesoAtual_g / 1000.0) * config.gravity; 
+            doc["forca"] = (pesoAtual_g / 1000.0) * config.gravity;
+            doc["gramas"] = pesoAtual_g;
             doc["status"] = balancaStatus;
             String output;
             serializeJson(doc, output);
@@ -275,23 +267,34 @@ bool aguardarEstabilidade(const String &proposito) {
     return true;
 }
 
+// =======================================================
+// DEFINIÇÃO DAS FUNÇÕES
+// =======================================================
+
 void handleFileRequest() {
     String path = server.uri();
+    if (path.endsWith(".js")) {
+        String pathWithGz = path + ".gz";
+        if (LittleFS.exists(pathWithGz)) {
+            File file = LittleFS.open(pathWithGz, "rb");
+            if (file && !file.isDirectory()) {
+                server.sendHeader("Content-Encoding", "gzip");
+                server.streamFile(file, "application/javascript");
+                file.close();
+                return;
+            }
+        }
+    }
     if (path.endsWith("/")) path += "index.html";
-    String contentType = "text/plain";
-    if (path.endsWith(".html")) contentType = "text/html";
-    else if (path.endsWith(".css")) contentType = "text/css";
-    else if (path.endsWith(".js")) contentType = "application/javascript";
-    
-    if (SPIFFS.exists(path)) {
-        File file = SPIFFS.open(path, "r");
+    String contentType = "text/html";
+    if (LittleFS.exists(path)) {
+        File file = LittleFS.open(path, "r");
         server.streamFile(file, contentType);
         file.close();
     } else {
         server.send(404, "text/plain", "404: Not Found");
     }
 }
-
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
     case WStype_DISCONNECTED:
