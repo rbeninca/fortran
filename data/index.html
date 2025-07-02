@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,15 +12,42 @@
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <script src="script.js" defer></script>
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .tablink.active { border-color: #3b82f6; color: #3b82f6; }
-    .tabcontent { animation: fadeIn 0.5s; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .tablink.active {
+      border-color: #3b82f6;
+      color: #3b82f6;
+    }
+
+    .tabcontent {
+      animation: fadeIn 0.5s;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
     /* A classe 'active' para botões agora é gerida por JavaScript/Tailwind */
-    input[type=number] { -moz-appearance: textfield; }
-    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
   </style>
 </head>
+
 <body class="bg-gray-100 text-gray-800">
 
   <div class="container mx-auto p-4 max-w-5xl">
@@ -27,12 +55,14 @@
     <header class="flex justify-between items-center mb-2">
       <h1 class="text-3xl font-bold text-gray-700">Balança Wi-Fi</h1>
       <div class="flex items-center space-x-2">
-        <div id="ws-indicator" class="w-4 h-4 rounded-full bg-red-500 transition-colors duration-500" title="Desconectado"></div>
+        <div id="ws-indicator" class="w-4 h-4 rounded-full bg-red-500 transition-colors duration-500"
+          title="Desconectado"></div>
         <span id="ws-text" class="text-sm text-gray-500">Desconectado</span>
       </div>
     </header>
-    
-    <div id="balanca-status-line" class="text-center text-md font-semibold text-gray-600 mb-4 p-2 bg-gray-200 rounded-lg">
+
+    <div id="balanca-status-line"
+      class="text-center text-md font-semibold text-gray-600 mb-4 p-2 bg-gray-200 rounded-lg">
       Status da Balança: <span id="balanca-status" class="text-blue-600">...</span>
     </div>
 
@@ -40,48 +70,64 @@
 
     <div class="mb-4 border-b border-gray-200">
       <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" onclick="abrirAba(this, 'abaGrafico')" id="padrao">📈 Gráfico</button>
-        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" onclick="abrirAba(this, 'abaTabela')">📋 Tabela</button>
-        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" onclick="abrirAba(this, 'abaControles')">⚙️ Parâmetros</button>
-        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm" onclick="abrirAba(this, 'abaConfig')">📡 Rede Wi-Fi</button>
+        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+          onclick="abrirAba(this, 'abaGrafico')" id="padrao">📈 Gráfico</button>
+        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+          onclick="abrirAba(this, 'abaTabela')">📋 Tabela</button>
+        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+          onclick="abrirAba(this, 'abaControles')">⚙️ Parâmetros</button>
+        <button class="tablink whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+          onclick="abrirAba(this, 'abaConfig')">📡 Rede Wi-Fi</button>
       </nav>
     </div>
 
     <main>
       <div id="abaGrafico" class="tabcontent bg-white p-6 rounded-lg shadow">
-        
+
         <!-- Seletor de Unidade -->
         <div class="flex justify-center mb-4">
-            <div class="inline-flex rounded-md shadow-sm" role="group">
-                <button id="btn-unit-n" onclick="setDisplayUnit('N')" class="px-4 py-2 text-sm font-medium bg-blue-500 text-white border border-gray-200 rounded-l-lg hover:bg-blue-600">Newtons (N)</button>
-                <button id="btn-unit-gf" onclick="setDisplayUnit('gf')" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100">Grama-força (gf)</button>
-                <button id="btn-unit-kgf" onclick="setDisplayUnit('kgf')" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100">Quilograma-força (kgf)</button>
-            </div>
+          <div class="inline-flex rounded-md shadow-sm" role="group">
+            <button id="btn-unit-n" onclick="setDisplayUnit('N')"
+              class="px-4 py-2 text-sm font-medium bg-blue-500 text-white border border-gray-200 rounded-l-lg hover:bg-blue-600">Newtons
+              (N)</button>
+            <button id="btn-unit-gf" onclick="setDisplayUnit('gf')"
+              class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100">Grama-força
+              (gf)</button>
+            <button id="btn-unit-kgf" onclick="setDisplayUnit('kgf')"
+              class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100">Quilograma-força
+              (kgf)</button>
+          </div>
         </div>
 
         <!-- Leitura Atual e Máxima -->
         <div class="flex justify-around text-center mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
-            <div>
-                <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Força Atual</h4>
-                <p id="forca-atual" class="text-3xl font-bold text-blue-600">---</p>
-            </div>
-            <div>
-                <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Força Máxima</h4>
-                <p id="forca-maxima" class="text-3xl font-bold text-red-600">---</p>
-            </div>
+          <div>
+            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Força Atual</h4>
+            <p id="forca-atual" class="text-3xl font-bold text-blue-600">---</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-medium text-gray-500 uppercase tracking-wider">Força Máxima</h4>
+            <p id="forca-maxima" class="text-3xl font-bold text-red-600">---</p>
+          </div>
         </div>
 
         <!-- Controles do Gráfico -->
         <div class="flex flex-col sm:flex-row justify-center items-center gap-4 mb-4">
-            <div class="inline-flex rounded-md shadow-sm" role="group">
-                <button id="btn-deslizante" onclick="setChartMode('deslizante')" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-l-lg hover:bg-gray-100">Deslizante</button>
-                <button id="btn-acumulado" onclick="setChartMode('acumulado')" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100">Acumulado</button>
-                <button id="btn-pausado" onclick="setChartMode('pausado')" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100">Pausar</button>
-            </div>
-            <div class="inline-flex rounded-md shadow-sm" role="group">
-                <button onclick="clearChart()" class="px-4 py-2 text-sm font-medium text-white bg-red-500 border border-red-500 rounded-l-lg hover:bg-red-600">Limpar</button>
-                <button onclick="resetChartZoom()" class="px-4 py-2 text-sm font-medium text-white bg-gray-500 border border-gray-500 rounded-r-lg hover:bg-gray-600">Resetar Zoom</button>
-            </div>
+          <div class="inline-flex rounded-md shadow-sm" role="group">
+            <button id="btn-deslizante" onclick="setChartMode('deslizante')"
+              class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-l-lg hover:bg-gray-100">Deslizante</button>
+            <button id="btn-acumulado" onclick="setChartMode('acumulado')"
+              class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border-t border-b border-gray-200 hover:bg-gray-100">Acumulado</button>
+            <button id="btn-pausado" onclick="setChartMode('pausado')"
+              class="px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-r-lg hover:bg-gray-100">Pausar</button>
+          </div>
+          <div class="inline-flex rounded-md shadow-sm" role="group">
+            <button onclick="clearChart()"
+              class="px-4 py-2 text-sm font-medium text-white bg-red-500 border border-red-500 rounded-l-lg hover:bg-red-600">Limpar</button>
+            <button onclick="resetChartZoom()"
+              class="px-4 py-2 text-sm font-medium text-white bg-gray-500 border border-gray-500 rounded-r-lg hover:bg-gray-600">Resetar
+              Zoom</button>
+          </div>
         </div>
         <!-- Canvas do Gráfico -->
         <canvas id="grafico"></canvas>
@@ -89,19 +135,24 @@
         <!-- Controles da Balança -->
         <div class="mt-8 pt-6 border-t border-gray-200">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div>
-                  <h3 class="text-lg font-medium mb-2">Comando de Tara</h3>
-                  <p class="text-sm text-gray-500 mb-3">Zera a balança. Use com o prato vazio.</p>
-                  <button onclick="tare()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow">Zerar (Tara)</button>
+            <div>
+              <h3 class="text-lg font-medium mb-2">Comando de Tara</h3>
+              <p class="text-sm text-gray-500 mb-3">Zera a balança. Use com o prato vazio.</p>
+              <button onclick="tare()"
+                class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow">Zerar
+                (Tara)</button>
+            </div>
+            <div>
+              <h3 class="text-lg font-medium mb-2">Calibração com Peso Conhecido</h3>
+              <p class="text-sm text-gray-500 mb-3">Coloque um peso de massa conhecida (em gramas) e digite o valor
+                abaixo.</p>
+              <div class="flex items-center space-x-2">
+                <input id="massaCalibracao" type="number" step="0.00001" placeholder="Massa em gramas"
+                  class="mt-1 block w-48 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                <button onclick="calibrar()"
+                  class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg shadow">Calibrar</button>
               </div>
-              <div>
-                  <h3 class="text-lg font-medium mb-2">Calibração com Peso Conhecido</h3>
-                  <p class="text-sm text-gray-500 mb-3">Coloque um peso de massa conhecida (em gramas) e digite o valor abaixo.</p>
-                  <div class="flex items-center space-x-2">
-                      <input id="massaCalibracao" type="number" step="0.00001" placeholder="Massa em gramas" class="mt-1 block w-48 px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                      <button onclick="calibrar()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg shadow">Calibrar</button>
-                  </div>
-              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -109,11 +160,16 @@
       <div id="abaTabela" class="tabcontent hidden bg-white p-6 rounded-lg shadow">
         <div class="overflow-y-auto h-96">
           <table class="min-w-full divide-y divide-gray-200" id="tabela">
-            <thead class="bg-gray-50">
+            <thead class="bg-gray-50 sticky top-0">
               <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data e Hora</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tempo (s)</th>
-                <th id="tabela-forca-header" scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Força (N)</th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data e Hora</th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tempo ESP (s)
+                </th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Newtons (N)</th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grama-força (gf)
+                </th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quilo-força
+                  (kgf)</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200"></tbody>
@@ -125,33 +181,52 @@
         <!-- Seção de Parâmetros -->
         <section>
           <h2 class="text-xl font-semibold mb-2">Parâmetros da Balança</h2>
-          <p class="text-sm text-gray-500 mb-4">Estes são os valores atuais em uso. Altere e salve conforme necessário.</p>
+          <p class="text-sm text-gray-500 mb-4">Estes são os valores atuais em uso. Altere e salve conforme necessário.
+          </p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-              <div><label for="param-conversao" class="block text-sm font-medium">Fator de Conversão</label><input id="param-conversao" type="number" step="any" class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
-              <div><label for="param-gravidade" class="block text-sm font-medium">Gravidade (m/s²)</label><input id="param-gravidade" type="number" step="any" class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
-              <div>
-                  <label for="param-offset" class="block text-sm font-medium">Offset de Tara Salvo</label>
-                  <div id="param-offset" class="mt-1 block w-full px-3 py-2 bg-gray-100 border rounded-md text-gray-700">0</div>
+            <div><label for="param-conversao" class="block text-sm font-medium">Fator de Conversão</label><input
+                id="param-conversao" type="number" step="any" class="mt-1 block w-full px-3 py-2 border rounded-md">
+            </div>
+            <div><label for="param-gravidade" class="block text-sm font-medium">Gravidade (m/s²)</label><input
+                id="param-gravidade" type="number" step="any" class="mt-1 block w-full px-3 py-2 border rounded-md">
+            </div>
+            <div>
+              <label for="param-offset" class="block text-sm font-medium">Offset de Tara Salvo</label>
+              <div id="param-offset" class="mt-1 block w-full px-3 py-2 bg-gray-100 border rounded-md text-gray-700">0
               </div>
+            </div>
           </div>
           <h3 class="text-lg font-semibold mt-6 mb-2">Parâmetros de Estabilização para Calibração</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-              <div><label for="param-leituras-estaveis" class="block text-sm font-medium">Leituras Estáveis Necessárias</label><input id="param-leituras-estaveis" type="number" class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
-              <div><label for="param-tolerancia" class="block text-sm font-medium">Tolerância de Estabilidade</label><input id="param-tolerancia" type="number" step="any" class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
-              <div><label for="param-num-amostras" class="block text-sm font-medium">Nº de Amostras para Média</label><input id="param-num-amostras" type="number" class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
-              <div><label for="param-timeout" class="block text-sm font-medium">Timeout de Calibração (ms)</label><input id="param-timeout" type="number" class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
+            <div><label for="param-leituras-estaveis" class="block text-sm font-medium">Leituras Estáveis
+                Necessárias</label><input id="param-leituras-estaveis" type="number"
+                class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
+            <div><label for="param-tolerancia" class="block text-sm font-medium">Tolerância de
+                Estabilidade</label><input id="param-tolerancia" type="number" step="any"
+                class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
+            <div><label for="param-num-amostras" class="block text-sm font-medium">Nº de Amostras para
+                Média</label><input id="param-num-amostras" type="number"
+                class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
+            <div><label for="param-timeout" class="block text-sm font-medium">Timeout de Calibração (ms)</label><input
+                id="param-timeout" type="number" class="mt-1 block w-full px-3 py-2 border rounded-md"></div>
           </div>
-          <button onclick="salvarParametros()" class="mt-6 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow">Salvar Todos os Parâmetros</button>
+          <button onclick="salvarParametros()"
+            class="mt-6 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow">Salvar Todos
+            os Parâmetros</button>
         </section>
       </div>
-      
+
       <div id="abaConfig" class="tabcontent hidden bg-white p-6 rounded-lg shadow space-y-8">
         <section>
           <h2 class="text-xl font-semibold mb-4">Configuração da Rede Wi-Fi</h2>
           <form onsubmit="salvarRede(event)" class="space-y-4">
-            <div><label for="ssid" class="block text-sm font-medium">Nome da Rede (SSID)</label><input id="ssid" required class="mt-1 block w-full md:w-1/2 px-3 py-2 border rounded-md"></div>
-            <div><label for="senha" class="block text-sm font-medium">Senha</label><input id="senha" type="password" class="mt-1 block w-full md:w-1/2 px-3 py-2 border rounded-md"></div>
-            <button type="submit" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg shadow">Salvar Rede e Reiniciar</button>
+            <div><label for="ssid" class="block text-sm font-medium">Nome da Rede (SSID)</label><input id="ssid"
+                required class="mt-1 block w-full md:w-1/2 px-3 py-2 border rounded-md"></div>
+            <div><label for="senha" class="block text-sm font-medium">Senha</label><input id="senha" type="password"
+                class="mt-1 block w-full md:w-1/2 px-3 py-2 border rounded-md"></div>
+            <button type="submit"
+              class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg shadow">Salvar Rede e
+              Reiniciar</button>
           </form>
         </section>
       </div>
@@ -159,4 +234,5 @@
 
   </div>
 </body>
+
 </html>

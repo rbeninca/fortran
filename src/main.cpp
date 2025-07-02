@@ -37,9 +37,10 @@ Config config;
 
 
 // --- PINOS DO SENSOR DE PESO (LIVRES DE CONFLITO) ---
-
-const uint8_t pinData = D2;
-const uint8_t pinClock = D1;
+const uint8_t pinVCC = D1;   //HIGH
+const uint8_t pinGND = D4;    //LOW
+const uint8_t pinData =D3 ;
+const uint8_t pinClock = D2;
 
 //define o pino de alimentação do HX711 como D0 (GPIO16) para evitar conflitos com o I2C do display
 
@@ -82,6 +83,10 @@ void setup() {
     loadConfig();
     
     // O bloco de alimentação por GPIO foi removido por segurança e estabilidade.
+    pinMode(pinVCC, OUTPUT);
+    pinMode(pinGND, OUTPUT);
+    digitalWrite(pinVCC, HIGH); // Liga o VCC do HX711
+    digitalWrite(pinGND, LOW);  // Liga o GND do HX711
 
     Serial.println("Iniciando HX711 nos pinos D1 e D2...");
     loadcell.begin(pinData, pinClock);
@@ -147,9 +152,12 @@ void loop() {
             }
             
             StaticJsonDocument<200> doc;
+
+            
             doc["type"] = "data";
             doc["tempo"] = millis() / 1000.0;
-            doc["forca"] = pesoAtual_g / 1000.0;
+            // Converte a massa (em kg) para força (em Newtons) usando F = m * g
+            doc["forca"] = (pesoAtual_g / 1000.0) * config.gravity; 
             doc["status"] = balancaStatus;
             String output;
             serializeJson(doc, output);

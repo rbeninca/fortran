@@ -5,6 +5,26 @@ let chartMode = 'deslizante'; // 'deslizante', 'acumulado', 'pausado'
 let displayUnit = 'N'; // Unidade de exibição padrão: 'N', 'gf', 'kgf'
 let maxForceInN = -Infinity; // Guarda sempre a força máxima na unidade base (Newtons)
 let rawDataN = []; // Guarda os dados brutos em Newtons para conversão
+let gravity = 9.80665; // Valor padrão, será atualizado ao conectar
+
+// --- NOVA FUNÇÃO PARA FORMATAR A PRECISÃO ---
+// Centraliza a lógica de arredondamento conforme a unidade.
+function formatForce(value, unit) {
+    if (unit === 'N') {
+        // Newtons: 2 casas decimais
+        return value.toFixed(2);
+    }
+    if (unit === 'gf') {
+        // Grama-força: nenhuma casa decimal (número inteiro)
+        return value.toFixed(0);
+    }
+    if (unit === 'kgf') {
+        // Quilograma-força: 3 casas decimais (representando as gramas)
+        return value.toFixed(3);
+    }
+    // Fallback padrão, caso uma nova unidade seja adicionada
+    return value.toFixed(3);
+}
 
 window.onload = () => {
   abrirAba(document.getElementById("padrao"), 'abaGrafico');
@@ -27,7 +47,7 @@ window.onload = () => {
       }
     }
   });
-  setChartMode('deslizante'); // Garante que o estado inicial do botão corresponda à variável
+  setChartMode('deslizante');
   conectarWebSocket();
 };
 
@@ -59,62 +79,71 @@ function conectarWebSocket() {
   };
 }
 
-// --- FUNÇÃO PARA CONVERTER VALORES DE FORÇA ---
 function convertForce(valueN, unit) {
     if (unit === 'gf') return valueN * 101.97;
     if (unit === 'kgf') return valueN * 0.10197;
-    return valueN; // Retorna em Newtons por padrão
+    return valueN;
 }
 
 function updateUI(dado) {
   document.getElementById('balanca-status').textContent = dado.status;
   
   const forceN = dado.forca;
-  rawDataN.push(forceN); // Armazena o dado bruto em Newtons
+  rawDataN.push(forceN);
   
-  // Atualiza a força máxima (sempre comparando em N)
   if (forceN > maxForceInN) {
       maxForceInN = forceN;
   }
   
-  // Converte os valores para a unidade de exibição selecionada
   const displayForce = convertForce(forceN, displayUnit);
   const maxDisplayForce = convertForce(maxForceInN, displayUnit);
 
-  document.getElementById('forca-atual').textContent = `${displayForce.toFixed(4)} ${displayUnit}`;
-  document.getElementById('forca-maxima').textContent = `${maxDisplayForce.toFixed(4)} ${displayUnit}`;
+  // --- ALTERADO: Usa a nova função de formatação ---
+  document.getElementById('forca-atual').textContent = `${formatForce(displayForce, displayUnit)} ${displayUnit}`;
+  document.getElementById('forca-maxima').textContent = `${formatForce(maxDisplayForce, displayUnit)} ${displayUnit}`;
 
   if (chartMode === 'pausado') return;
 
   const { labels, datasets } = chart.data;
-  
   const espTime = dado.tempo.toFixed(2);
   labels.push(espTime);
-  datasets[0].data.push(displayForce.toFixed(4));
+  // --- ALTERADO: Usa a nova função de formatação ---
+  datasets[0].data.push(formatForce(displayForce, displayUnit));
 
-  // Remove dados antigos
   if (rawDataN.length > MAX_DATA_POINTS && chartMode === 'deslizante') {
     rawDataN.shift();
     labels.shift();
     datasets[0].data.shift();
   }
   
-  if (chartMode === 'acumulado') {
-    chart.update('none'); 
-  } else {
-    chart.update();
-  }
+  chart.update(chartMode === 'acumulado' ? 'none' : undefined);
 
-  const tbody = document.getElementById("tabela").querySelector("tbody");
+   const tbody = document.getElementById("tabela").querySelector("tbody");
   const linha = tbody.insertRow(0);
 
-  const timestamp = new Date().toLocaleTimeString('pt-BR');
-
+  // Coluna 1: Data e Hora completa do navegador
+  const agora = new Date();
+  const timestamp = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')} ${agora.toLocaleTimeString('pt-BR')}.${String(agora.getMilliseconds()).padStart(3, '0')}`;
   linha.insertCell(0).innerText = timestamp;
-  linha.insertCell(1).innerText = espTime;
-  linha.insertCell(2).innerText = displayForce.toFixed(4);
 
-  if (tbody.rows.length > 200) tbody.deleteRow(200);
+  // Coluna 2: Tempo do microcontrolador
+  linha.insertCell(1).innerText = espTime;
+
+  // Coluna 3: Força em Newtons (o dado que recebemos)
+  linha.insertCell(2).innerText = forceN.toFixed(2);
+
+  // Coluna 4 e 5: Cálculos feitos a partir dos Newtons
+  let massaKg = 0;
+  if (gravity && gravity > 0) { // Cálculo seguro para evitar divisão por zero
+    massaKg = forceN / gravity;
+  }
+  linha.insertCell(3).innerText = (massaKg * 1000).toFixed(0); // Grama-força
+  linha.insertCell(4).innerText = massaKg.toFixed(3);        // Quilo-força
+
+  // Limita o número de linhas na tabela
+  if (tbody.rows.length > 200) {
+    tbody.deleteRow(200);
+  }
 }
 
 function updateConfigForm(config) {
@@ -128,6 +157,8 @@ function updateConfigForm(config) {
   document.getElementById("param-num-amostras").value = getValue(config.numAmostrasMedia);
   document.getElementById("param-timeout").value = getValue(config.timeoutCalibracao);
   document.getElementById("param-offset").textContent = getValue(config.tareOffset);
+  // LINHA A SER ADICIONADA
+  if(config.gravity) { gravity = parseFloat(config.gravity); }
 }
 
 function sendCommand(cmd) {
@@ -142,7 +173,7 @@ function tare() { sendCommand("t"); }
 
 function calibrar() {
   const massaInput = document.getElementById("massaCalibracao");
-  const massa = parseFloat(massaInput.value).toFixed(5);
+  const massa = parseFloat(massaInput.value);
   if (massa > 0) {
     sendCommand("c:" + massa);
   } else {
@@ -176,7 +207,6 @@ function salvarRede(event) {
 function setDisplayUnit(unit) {
     displayUnit = unit;
     
-    // Atualiza os estilos dos botões de unidade
     const unitButtons = document.querySelectorAll('#abaGrafico .btn-group:first-of-type button');
     unitButtons.forEach(b => {
         b.classList.remove('bg-blue-500', 'text-white');
@@ -188,21 +218,20 @@ function setDisplayUnit(unit) {
         activeButton.classList.add('bg-blue-500', 'text-white');
     }
 
-    // Atualiza o título do eixo Y e da tabela
     chart.options.scales.y.title.text = `Força (${unit})`;
     chart.data.datasets[0].label = `Força (${unit})`;
     document.getElementById('tabela-forca-header').textContent = `Força (${unit})`;
 
-    // Reconverte todos os dados existentes no gráfico
-    chart.data.datasets[0].data = rawDataN.map(forceN => convertForce(forceN, unit));
+    // Reconverte e reformata todos os dados existentes no gráfico
+    chart.data.datasets[0].data = rawDataN.map(forceN => formatForce(convertForce(forceN, unit), unit));
     chart.update();
 
-    // Atualiza os painéis
+    // Atualiza os painéis com a nova formatação
     const maxDisplayForce = convertForce(maxForceInN, displayUnit);
-    document.getElementById('forca-maxima').textContent = `${maxDisplayForce.toFixed(4)} ${displayUnit}`;
+    document.getElementById('forca-maxima').textContent = `${formatForce(maxDisplayForce, displayUnit)} ${displayUnit}`;
     const currentForceN = rawDataN.length > 0 ? rawDataN[rawDataN.length-1] : 0;
     const currentDisplayForce = convertForce(currentForceN, displayUnit);
-    document.getElementById('forca-atual').textContent = `${currentDisplayForce.toFixed(4)} ${displayUnit}`;
+    document.getElementById('forca-atual').textContent = `${formatForce(currentDisplayForce, displayUnit)} ${displayUnit}`;
 }
 
 function setChartMode(mode) {
