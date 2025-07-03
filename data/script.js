@@ -1,12 +1,20 @@
 let chart;
 let socket;
-const MAX_DATA_POINTS = 50;
+const MAX_DATA_POINTS = 120;
 let chartMode = 'deslizante';
-let displayUnit = 'N';
+let displayUnit = 'kgf'; // Default unit
 let maxForceInN = -Infinity;
 let chartData = { labels: [], series: [[]] };
 let rawDataN = [];
 let gravity = 9.80665;
+
+let readingsCounter = 0;
+let lastUpdateTime = Date.now();
+
+let emaAlpha = 0.2; // quanto menor, mais suave
+let emaValue = 0;
+let emaInitialized = false;
+let emaBuffer = [];
 
 function formatForce(value, unit) { if (unit === 'N') return value.toFixed(2); if (unit === 'gf') return value.toFixed(0); if (unit === 'kgf') return value.toFixed(3); return value.toFixed(3); }
 function convertForce(valueN, unit) { if (unit === 'gf') return valueN * 101.97; if (unit === 'kgf') return valueN * 0.10197; return valueN; }
@@ -25,10 +33,12 @@ window.onload = () => {
   };
   chart = new Chartist.Line('#grafico', chartData, chartOptions);
 
-  setDisplayUnit('N');
+  setDisplayUnit('kgf');
   setChartMode('deslizante');
   carregarGravacoes();
   conectarWebSocket();
+  
+  setInterval(updateReadingsPerSecond, 1000);
 };
 
 function conectarWebSocket() {
@@ -41,7 +51,10 @@ function conectarWebSocket() {
     try {
       const data = JSON.parse(event.data);
       switch (data.type) {
-        case "data": updateUI(data); break;
+        case "data": 
+              readingsCounter++;
+              updateUI(data);
+          break;
         case "status": showNotification(data.status, data.message, (data.status === 'info') ? 500 : 7000); break;
         case "config": updateConfigForm(data); break;
       }
@@ -50,7 +63,7 @@ function conectarWebSocket() {
 }
 
 function updateUI(dado) {
-  document.getElementById('balanca-status').textContent = dado.status;
+  document.getElementById('balanca-status').textContent = dado.status; //modificado para contador fazer
   const forceN = dado.forca;
   rawDataN.push(forceN);
   if (forceN > maxForceInN) { maxForceInN = forceN; }
@@ -70,6 +83,9 @@ function updateUI(dado) {
     chartData.labels.shift();
     chartData.series[0].shift();
     rawDataN.shift();
+    const emaForcaN = getEmaValue(forceN);
+    const emaDisplay = convertForce(emaForcaN, displayUnit);
+    document.getElementById('forca-ems').textContent = `${formatForce(emaDisplay, displayUnit)} ${displayUnit}`;
   }
   chart.update(chartData);
 
@@ -83,7 +99,7 @@ function updateUI(dado) {
   let massaKg = forceN > 0 && gravity > 0 ? forceN / gravity : 0;
   linha.insertCell(3).innerText = (massaKg * 1000).toFixed(0);
   linha.insertCell(4).innerText = massaKg.toFixed(3);
-  if (tbody.rows.length > 200) { tbody.deleteRow(200); }
+  if (tbody.rows.length > 200000) { tbody.deleteRow(200000); }
 }
 
 function updateConfigForm(config) {
@@ -218,6 +234,18 @@ function carregarGravacoes() {
     });
 }
 
+
+function updateReadingsPerSecond() {
+    const now = Date.now();
+    const elapsedTime = (now - lastUpdateTime) / 1000; // Tempo em segundos
+    if (elapsedTime > 0) {
+        const rps = (readingsCounter / elapsedTime).toFixed(1);
+        document.getElementById('leituras-por-segundo').textContent = rps;
+    }
+    // Reseta para o próximo intervalo
+    readingsCounter = 0;
+    lastUpdateTime = now;
+}
 function exportarCSV(id) {
     const gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
     const gravacao = gravacoes.find(g => g.id === id);
@@ -241,4 +269,21 @@ function deletarGravacao(id) {
     localStorage.setItem('balancaGravacoes', JSON.stringify(novasGravacoes));
     showNotification('info', 'Gravação deletada.');
     carregarGravacoes();
+}
+
+function getEmaValue(newValue) {
+    if (!emaInitialized) {
+        emaValue = newValue;
+        emaInitialized = true;
+    } else {
+        emaValue = emaAlpha * newValue + (1 - emaAlpha) * emaValue;
+    }
+
+    // Armazena no buffer circular para histórico de 100
+    emaBuffer.push(emaValue);
+    if (emaBuffer.length > readingsCounter*2) {
+        emaBuffer.shift();
+    }
+
+    return emaValue;
 }

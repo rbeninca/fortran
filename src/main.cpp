@@ -52,6 +52,7 @@ WebSocketsServer webSocket(81);
 String balancaStatus = "Iniciando...";
 float pesoAtual_g = 0.0;
 unsigned long lastReadTime = 0;
+unsigned long lastDisplayUpdateedTime = 0;
 
 
 // --- PROTÓTIPOS DE FUNÇÕES ---
@@ -62,6 +63,7 @@ void broadcastStatus(const char *type, const String &message);
 bool aguardarEstabilidade(const String &proposito);
 void handleFileRequest();
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_t length);
+float get_units_ema() ; // Função para calcular a média móvel exponencial
 
 
 // =======================================================
@@ -69,7 +71,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
 // =======================================================
 void setup() {
     Serial.begin(115200);
-    Serial.println("\n\nBalança ESP8266 - Versão Estável e Corrigida");
+    Serial.println("\n\nBalança GFIG ESP8266");
 
     Wire.begin(OLED_SDA, OLED_SCL);
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -81,14 +83,8 @@ void setup() {
     EEPROM.begin(sizeof(Config));
     SPIFFS.begin();
     loadConfig();
-    
-    // O bloco de alimentação por GPIO foi removido por segurança e estabilidade.
-    // pinMode(pinVCC, OUTPUT);
-    // pinMode(pinGND, OUTPUT);
-    // digitalWrite(pinVCC, HIGH); // Liga o VCC do HX711
-    // digitalWrite(pinGND, LOW);  // Liga o GND do HX711
-
-    Serial.println("Iniciando HX711 nos pinos D1 e D2...");
+   
+    Serial.println("Iniciando HX711 nos pinos D6 e D7...");
     loadcell.begin(pinData, pinClock);
     loadcell.set_scale(config.conversionFactor);
     loadcell.set_offset(config.tareOffset);
@@ -104,8 +100,10 @@ void setup() {
     }
 
     atualizarDisplay("Conectando WiFi...", 0);
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.softAP("balancaESP", "");
+    WiFi.mode(WIFI_STA);
+    //WiFi.softAP("balancaGFIG", "aabbccddee"); // Cria um AP para configuração inicial
+    //Serial.print("AP IP: ");
+    //Serial.println(WiFi.softAPIP());
     WiFi.begin(config.staSSID, config.staPassword);
     
     unsigned long start = millis();
@@ -137,16 +135,17 @@ void loop() {
     webSocket.loop();
     server.handleClient();
 
-    if (millis() - lastReadTime >=13 ) {
+    if (millis() - lastReadTime >=12 ) {
         lastReadTime = millis();
         
         if (balancaStatus.indexOf("Tarar") != -1 || balancaStatus.indexOf("Calibrar") != -1) {
             return;
         }
-
+        
         if (loadcell.is_ready()) {
             balancaStatus = "Pesando";
-            pesoAtual_g = loadcell.get_units(5);
+            //pesoAtual_g = loadcell.get_units(1);
+            pesoAtual_g = get_units_ema(); // Usando a média móvel exponencial 
             if (config.conversionFactor < 0) {
                 pesoAtual_g *= -1;
             }
@@ -162,8 +161,13 @@ void loop() {
             String output;
             serializeJson(doc, output);
             webSocket.broadcastTXT(output);
-
-            atualizarDisplay(balancaStatus, pesoAtual_g);
+            // Atualiza o display OLED no minimamente a cada 500ms
+            delay(2);
+            if (millis() - lastDisplayUpdateedTime >= 500) {
+                lastDisplayUpdateedTime = millis();
+                atualizarDisplay(balancaStatus, pesoAtual_g);
+            }
+            delay(3); // Pequeno delay para evitar sobrecarga do processador
         } else {
             broadcastStatus("info", "Aguardando celula...");
         }
@@ -184,7 +188,7 @@ void atualizarDisplay(String status, float peso_em_gramas) {
     display.setCursor(0, 0);
     display.println("Status:");
     display.setCursor(0, 12);
-    display.println(status);
+    display.print(status);
 
     // Peso
     display.setTextSize(2);
@@ -372,4 +376,20 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
         break;
     }
     }
+}
+
+float emaValue = 0.0;
+bool emaInitialized = false;
+const float alpha = 0.5;  // fator de suavização (0 < alpha <= 1)
+float get_units_ema() {
+  if (!loadcell.is_ready()) return emaValue;
+
+  float newValue = loadcell.get_units(1);  // Uma leitura bruta em unidades calibradas
+  if (!emaInitialized) {
+    emaValue = newValue;
+    emaInitialized = true;
+  } else {
+    emaValue = (alpha * newValue) + ((1 - alpha) * emaValue);
+  }
+  return emaValue;
 }
