@@ -55,7 +55,7 @@ function conectarWebSocket() {
               readingsCounter++;
               updateUI(data);
           break;
-        case "status": showNotification(data.status, data.message, (data.status === 'info') ? 500 : 7000); break;
+        case "status": showNotification(data.status, data.message, (data.status === 'info') ? 2000 : 7000); break;
         case "config": updateConfigForm(data); break;
       }
     } catch (e) { console.error("Erro ao processar JSON:", e, event.data); }
@@ -203,7 +203,7 @@ function showNotification(type, message, duration = 7000) {
     area.prepend(notification);
     if(duration > 0) setTimeout(() => { notification.style.transition = 'opacity 0.3s';
        notification.style.opacity = '0';
-        setTimeout(() => notification.remove(), 500);
+        setTimeout(() => notification.remove(), 5000);
        }, duration);
 }
 

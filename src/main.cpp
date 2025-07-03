@@ -135,8 +135,8 @@ void setup() {
 void loop() {
     webSocket.loop();
     server.handleClient();
-
-    if (millis() - lastReadTime >=12 ) {
+    delay(2);
+    if (millis() - lastReadTime >=10 ) {
         lastReadTime = millis();
         
         if (balancaStatus.indexOf("Tarar") != -1 || balancaStatus.indexOf("Calibrar") != -1) {
