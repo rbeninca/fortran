@@ -112,14 +112,30 @@ function updateConfigForm(config) {
   document.getElementById("param-tolerancia").value = getValue(config.toleranciaEstabilidade);
   document.getElementById("param-num-amostras").value = getValue(config.numAmostrasMedia);
   document.getElementById("param-timeout").value = getValue(config.timeoutCalibracao);
-  document.getElementById("param-offset").textContent = getValue(config.tareOffset);
+  document.getElementById("param-offset").value = getValue(config.tareOffset);
   if(config.gravity) { gravity = parseFloat(config.gravity); }
 }
 
 function sendCommand(cmd) { if (socket && socket.readyState === WebSocket.OPEN) { socket.send(cmd); } else { showNotification("error", "Não conectado."); } }
 function tare() { sendCommand("t"); }
 function calibrar() { const massa = parseFloat(document.getElementById("massaCalibracao").value); if (massa > 0) { sendCommand("c:" + massa); } else { showNotification("error", "Informe uma massa válida."); } }
-function salvarParametros() { const params = { conversionFactor: "param-conversao", gravity: "param-gravidade", leiturasEstaveis: "param-leituras-estaveis", toleranciaEstabilidade: "param-tolerancia", numAmostrasMedia: "param-num-amostras", timeoutCalibracao: "param-timeout" }; for (const [key, id] of Object.entries(params)) { const value = document.getElementById(id).value; if (value) { sendCommand(`set_param:${key}:${value}`); } } }
+function salvarParametros() { 
+  const params = { conversionFactor: "param-conversao",
+                    gravity: "param-gravidade",
+                    leiturasEstaveis: "param-leituras-estaveis", 
+                    toleranciaEstabilidade: "param-tolerancia", 
+                    numAmostrasMedia: "param-num-amostras", 
+                    timeoutCalibracao: "param-timeout",
+                    tareOffset: "param-offset"
+                  }; 
+    for (const [key, id] of Object.entries(params)) 
+      { const value = document.getElementById(id).value; 
+        if (value) { 
+          sendCommand(`set_param:${key}:${value}`); 
+        } 
+      }
+}
+
 function salvarRede(event) { event.preventDefault(); const form = new FormData(event.target); fetch("/salvarRede", { method: "POST", body: new URLSearchParams(form) }).then(r => r.text()).then(text => showNotification("success", text)); }
 
 function setDisplayUnit(unit) {

@@ -66,6 +66,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
 float get_units_ema() ; // Função para calcular a média móvel exponencial
 
 
+
 // =======================================================
 // SETUP (CONFIGURAÇÃO INICIAL)
 // =======================================================
@@ -101,9 +102,9 @@ void setup() {
 
     atualizarDisplay("Conectando WiFi...", 0);
     WiFi.mode(WIFI_STA);
-    //WiFi.softAP("balancaGFIG", "aabbccddee"); // Cria um AP para configuração inicial
-    //Serial.print("AP IP: ");
-    //Serial.println(WiFi.softAPIP());
+    WiFi.softAP("balancaGFIG", "aabbccddee"); // Cria um AP para configuração inicial
+    Serial.print("AP IP: ");
+    Serial.println(WiFi.softAPIP());
     WiFi.begin(config.staSSID, config.staPassword);
     
     unsigned long start = millis();
@@ -362,13 +363,23 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
             String paramName = msg.substring(firstColon + 1, secondColon);
             String paramValue = msg.substring(secondColon + 1);
             bool changed = false;
-
+            
             if (paramName == "conversionFactor") { config.conversionFactor = paramValue.toFloat(); loadcell.set_scale(config.conversionFactor); changed = true; }
             else if (paramName == "gravity") { config.gravity = paramValue.toFloat(); changed = true; }
             else if (paramName == "leiturasEstaveis") { config.leiturasEstaveis = paramValue.toInt(); changed = true; }
             else if (paramName == "toleranciaEstabilidade") { config.toleranciaEstabilidade = paramValue.toFloat(); changed = true; }
             else if (paramName == "numAmostrasMedia") { config.numAmostrasMedia = paramValue.toInt(); changed = true; }
             else if (paramName == "timeoutCalibracao") { config.timeoutCalibracao = paramValue.toInt(); changed = true; }
+            else if (paramName == "tareOffset") { 
+                long newOffset = paramValue.toInt();
+                if (aguardarEstabilidade("Tara")) {
+                    loadcell.set_offset(newOffset);
+                    config.tareOffset = newOffset;
+                    changed = true;
+                                    } else {
+                    broadcastStatus("error", "Falha ao aplicar o novo offset. Balança não estabilizou.");
+                }
+            }
 
             if (changed) { saveConfig(); broadcastStatus("success", "Parâmetro '" + paramName + "' salvo!"); }
             else { broadcastStatus("error", "Parâmetro desconhecido."); }
@@ -377,6 +388,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
     }
     }
 }
+
 
 float emaValue = 0.0;
 bool emaInitialized = false;
