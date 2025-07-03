@@ -137,7 +137,7 @@ void loop() {
     webSocket.loop();
     server.handleClient();
 
-    if (millis() - lastReadTime >= 300) {
+    if (millis() - lastReadTime >=13 ) {
         lastReadTime = millis();
         
         if (balancaStatus.indexOf("Tarar") != -1 || balancaStatus.indexOf("Calibrar") != -1) {
