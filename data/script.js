@@ -110,7 +110,7 @@ function setDisplayUnit(unit) {
     displayUnit = unit;
     document.querySelectorAll('.btn-grupo .btn').forEach(b => b.classList.remove('ativo'));
     
-    // --- CORREÇÃO APLICADA AQUI ---
+    
     // Converte a unidade para minúsculas ao procurar o ID, para corresponder ao HTML ('n' em vez de 'N')
     const activeButton = document.getElementById(`btn-unit-${unit.toLowerCase()}`);
     if (activeButton) {
