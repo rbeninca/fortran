@@ -72,12 +72,19 @@ function handleWorkerMessage(event) {
       break;
 
     case 'status':
-      updateConnectionStatus(status === 'connected');
+      //updateConnectionStatus(status === 'connected');
       document.getElementById('balanca-status').textContent = message || status;
       if (message) {
         const notificationType = (status === 'error' || status === 'disconnected') ? 'erro' : 'info';
         showNotification(notificationType, message);
       }
+      if (status === 'connected') {
+        updateConnectionStatus(true);
+      } else if (status === 'disconnected' || status === 'error') {
+        updateConnectionStatus(false);
+      }
+
+      
       break;
     
     case 'error':
@@ -125,7 +132,7 @@ function updateUIFromData(dado) {
 
   // Adiciona a nova leitura à tabela
   const tbody = document.getElementById("tabela").querySelector("tbody");
-  const linha = tbody.insertRow(0); // Insere no topo
+  const linha = tbody.insertRow(-1); // Insere no topo
   const agora = new Date();
   const timestamp = `${agora.toLocaleDateString('pt-BR')} ${agora.toLocaleTimeString('pt-BR')}.${String(agora.getMilliseconds()).padStart(3, '0')}`;
   
