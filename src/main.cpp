@@ -64,7 +64,7 @@ bool aguardarEstabilidade(const String &proposito);
 void handleFileRequest();
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_t length);
 float get_units_ema() ; // Função para calcular a média móvel exponencial
-
+void verificarClientesWebSocket() ;
 
 
 // =======================================================
@@ -145,8 +145,8 @@ void loop() {
         
         if (loadcell.is_ready()) {
             balancaStatus = "Pesando";
-            //pesoAtual_g = loadcell.get_units(1);
-            pesoAtual_g = get_units_ema(); // Usando a média móvel exponencial 
+            pesoAtual_g = loadcell.get_units(1);
+            //pesoAtual_g = get_units_ema(); // Usando a média móvel exponencial 
             if (config.conversionFactor < 0) {
                 pesoAtual_g *= -1;
             }
@@ -164,9 +164,9 @@ void loop() {
             webSocket.broadcastTXT(output);
             // Atualiza o display OLED no minimamente a cada 500ms
             delay(2);
-            if (millis() - lastDisplayUpdateedTime >= 500) {
-                lastDisplayUpdateedTime = millis();
+            if (millis() - lastReadTime >= 500) {
                 atualizarDisplay(balancaStatus, pesoAtual_g);
+                verificarClientesWebSocket();
             }
             delay(3); // Pequeno delay para evitar sobrecarga do processador
         } else {
@@ -175,7 +175,16 @@ void loop() {
     }
 }
 
-
+void verificarClientesWebSocket() {
+  for (uint8_t i = 0; i < webSocket.connectedClients(); i++) {
+    // Tenta enviar uma mensagem vazia para testar se o cliente está respondendo
+    bool ok = webSocket.sendTXT(i, "");
+    if (!ok) {
+      Serial.printf("[WebSocket] Cliente %u parece travado. Desconectando...\n", i);
+      webSocket.disconnect(i);
+    }
+  }
+}
 // =======================================================
 // DEFINIÇÃO DAS FUNÇÕES
 // =======================================================
@@ -287,6 +296,7 @@ void handleFileRequest() {
     if (path.endsWith(".html")) contentType = "text/html";
     else if (path.endsWith(".css")) contentType = "text/css";
     else if (path.endsWith(".js")) contentType = "application/javascript";
+    else if ()
     
     if (SPIFFS.exists(path)) {
         File file = SPIFFS.open(path, "r");

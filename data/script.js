@@ -5,8 +5,10 @@ const MAX_DATA_POINTS = 120; // Pontos no gráfico deslizante
 let chartMode = 'deslizante';
 let displayUnit = 'kgf';
 let maxForceInN = -Infinity;
+let minForceInN = Infinity;
 let chartData = { labels: [], series: [[]] };
 let rawDataN = []; // Armazena os dados brutos em Newtons para recalcular o gráfico
+let connectionTimeout; // Temporizador para detectar perda de conexão
 
 // --- Funções de Inicialização ---
 window.onload = () => {
@@ -27,10 +29,10 @@ window.onload = () => {
   // Configura estado inicial dos botões
   setDisplayUnit('kgf');
   setChartMode('deslizante');
-  
+
   // Carrega gravações salvas no LocalStorage
   carregarGravacoes();
-  
+
   // Inicia e conecta ao Web Worker
   conectarWorker();
 
@@ -43,7 +45,7 @@ function conectarWorker() {
     if (!dataWorker) {
       dataWorker = new Worker('dataWorker.js');
       dataWorker.onmessage = handleWorkerMessage;
-      
+
       // Solicita os dados da balança a cada 200ms
       setInterval(() => {
         dataWorker.postMessage({ type: 'solicitarDados' });
@@ -54,15 +56,27 @@ function conectarWorker() {
   }
 }
 
+/**
+ * Reinicia o temporizador de timeout da conexão.
+ * Se nenhuma mensagem for recebida em 4 segundos, a conexão é considerada perdida.
+ */
+function resetConnectionTimeout() {
+  clearTimeout(connectionTimeout);
+  connectionTimeout = setTimeout(() => {
+    updateConnectionStatus(false);
+    document.getElementById('balanca-status').textContent = 'Dispositivo não responde.';
+  }, 500); // 1 segundos de timeout
+}
+
 // --- Manipulador de Mensagens do Worker ---
 function handleWorkerMessage(event) {
   const { type, payload, status, message } = event.data;
-
+  resetConnectionTimeout();
   switch (type) {
     case 'dadosDisponiveis':
       payload.forEach(updateUIFromData);
       break;
-    
+
     case 'rps':
       document.getElementById('leituras-por-segundo').textContent = payload;
       break;
@@ -78,15 +92,18 @@ function handleWorkerMessage(event) {
         const notificationType = (status === 'error' || status === 'disconnected') ? 'erro' : 'info';
         showNotification(notificationType, message);
       }
+      // Atualiza o indicador de conexão (ponto verde/vermelho) para eventos explícitos.
       if (status === 'connected') {
         updateConnectionStatus(true);
       } else if (status === 'disconnected' || status === 'error') {
+        // Se recebermos uma desconexão explícita, cancelamos o timeout e forçamos o status.
+        clearTimeout(connectionTimeout);
         updateConnectionStatus(false);
       }
 
-      
+
       break;
-    
+
     case 'error':
       showNotification("erro", message || "Erro desconhecido no worker");
       break;
@@ -99,22 +116,27 @@ function handleWorkerMessage(event) {
 // --- Funções de Atualização da UI ---
 function updateUIFromData(dado) {
   const { tempo, forca, ema, maxForce, massaKg } = dado;
-  
+
   // Atualiza a força máxima global se necessário
   if (forca > maxForceInN) {
     maxForceInN = forca;
   }
-  
+  if (forca < minForceInN) {
+    minForceInN = forca;
+  }
+
   rawDataN.push(forca); // Adiciona a leitura em Newtons ao array bruto
 
   // Converte valores para a unidade de exibição selecionada
   const displayForce = convertForce(forca, displayUnit);
   const maxDisplayForce = convertForce(maxForceInN, displayUnit);
   const emaDisplay = convertForce(ema, displayUnit);
+  const minDisplayForce = convertForce(minForceInN, displayUnit);
 
   // Atualiza os painéis de leitura
   document.getElementById('forca-atual').textContent = `${formatForce(displayForce, displayUnit)} ${displayUnit}`;
   document.getElementById('forca-maxima').textContent = `${formatForce(maxDisplayForce, displayUnit)} ${displayUnit}`;
+  document.getElementById('forca-minima').textContent = `mín: ${formatForce(minDisplayForce, displayUnit)} ${displayUnit}`;
   document.getElementById('forca-ems').textContent = `${formatForce(emaDisplay, displayUnit)} ${displayUnit}`;
 
   // Atualiza o gráfico se não estiver pausado
@@ -135,7 +157,7 @@ function updateUIFromData(dado) {
   const linha = tbody.insertRow(-1); // Insere no topo
   const agora = new Date();
   const timestamp = `${agora.toLocaleDateString('pt-BR')} ${agora.toLocaleTimeString('pt-BR')}.${String(agora.getMilliseconds()).padStart(3, '0')}`;
-  
+
   linha.insertCell(0).innerText = timestamp;
   linha.insertCell(1).innerText = tempo.toFixed(1);
   linha.insertCell(2).innerText = forca.toFixed(3);
@@ -158,6 +180,7 @@ function updateConfigForm(config) {
   document.getElementById("param-offset").value = getValue(config.tareOffset);
   document.getElementById("param-leituras-estaveis").value = getValue(config.leiturasEstaveis);
   document.getElementById("param-tolerancia").value = getValue(config.toleranciaEstabilidade);
+  atualizarToleranciaEmGramas();
   document.getElementById("param-num-amostras").value = getValue(config.numAmostrasMedia);
   document.getElementById("param-timeout").value = getValue(config.timeoutCalibracao);
 }
@@ -166,6 +189,9 @@ function updateConnectionStatus(isConnected) {
   const indicator = document.getElementById('ws-indicator');
   indicator.classList.toggle('conectado', isConnected);
   document.getElementById('ws-text').textContent = isConnected ? "Conectado" : "Desconectado";
+  if (!isConnected) {
+    tocarBip();
+  }
 }
 
 function updateReadingsPerSecond() {
@@ -262,8 +288,11 @@ function clearChart() {
   chartData.series = [[]];
   rawDataN = [];
   maxForceInN = -Infinity;
+  minForceInN = Infinity;
   document.getElementById('forca-atual').textContent = `--- ${displayUnit}`;
   document.getElementById('forca-maxima').textContent = `--- ${displayUnit}`;
+  
+  document.getElementById('forca-minima').textContent = `--- ${displayUnit}`;
   document.getElementById("tabela").querySelector("tbody").innerHTML = '';
   chart.update(chartData);
   showNotification("info", "Sessão atual limpa.", 3000);
@@ -391,4 +420,27 @@ function deletarGravacao(id) {
   localStorage.setItem('balancaGravacoes', JSON.stringify(novasGravacoes));
   showNotification('info', 'Gravação deletada.');
   carregarGravacoes();
+}
+
+
+function tocarBip() {
+  const contexto = new (window.AudioContext || window.webkitAudioContext)();
+  const oscilador = contexto.createOscillator();
+  oscilador.type = 'square'; // 'sine', 'square', 'triangle', 'sawtooth'
+  oscilador.frequency.setValueAtTime(880, contexto.currentTime); // Frequência em Hz (880Hz = tom agudo)
+  oscilador.connect(contexto.destination);
+  oscilador.start();
+  oscilador.stop(contexto.currentTime + 0.2); // Toca por 200ms
+}
+
+function atualizarToleranciaEmGramas() {
+  const toleranciaBruta = parseFloat(document.getElementById("param-tolerancia").value);
+  const fatorConversao = parseFloat(document.getElementById("param-conversao").value);
+  if (!isNaN(toleranciaBruta) && !isNaN(fatorConversao) && fatorConversao !== 0) {
+    const toleranciaN = toleranciaBruta / fatorConversao;
+    const toleranciaGf = toleranciaN * 101.9716;
+    document.getElementById("tolerancia-em-gramas").textContent = `≈ ${toleranciaGf.toFixed(2)} gf`;
+  } else {
+    document.getElementById("tolerancia-em-gramas").textContent = '';
+  }
 }

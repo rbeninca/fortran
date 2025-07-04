@@ -27,7 +27,9 @@
           <div><h4>Força Atual</h4><p id="forca-atual">---</p></div>
           <div><h4>Força EMS</h4><p id="forca-ems">---</p></div>
           <div><h4>Força Máxima</h4><p id="forca-maxima">---</p>
-          </div> <div><h4>Leituras/Seg</h4><p id="leituras-por-segundo">---</p></div>
+           <small id="forca-minima" style="display: block; font-size: 0.75rem; color: var(--cor-texto-secundario);">mín: ---</small>
+          </div> 
+          <div><h4>Leituras/Seg</h4><p id="leituras-por-segundo">---</p></div>
           </div>
     
     <div style="position: sticky; top:3rem;"  class="nav-abas"><nav><button class="tablink" onclick="abrirAba(this, 'abaGrafico')" id="padrao">📈 Gráfico</button><button class="tablink" onclick="abrirAba(this, 'abaTabela')">📋 Tabela</button><button class="tablink" onclick="abrirAba(this, 'abaGravacoes')">💾 Gravações</button><button class="tablink" onclick="abrirAba(this, 'abaControles')">⚙️ Parâmetros</button><button class="tablink" onclick="abrirAba(this, 'abaConfig')">📡 Rede Wi-Fi</button>
@@ -56,7 +58,8 @@
           <h3 style="font-size: 1.125rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem;">Parâmetros de Estabilização</h3>
           <div class="grid-container" style="gap: 1rem;">
             <div><label for="param-leituras-estaveis">Leituras Estáveis</label><input id="param-leituras-estaveis" type="number"></div>
-            <div><label for="param-tolerancia">Tolerância de Estabilidade</label><input id="param-tolerancia" type="number" step="any"></div>
+            <div><label for="param-tolerancia">Tolerância de Estabilidade</label><input id="param-tolerancia" type="number" step="any" oninput="atualizarToleranciaEmGramas()"">  
+              <small id="tolerancia-em-gramas" style="color: var(--cor-texto-secundario); display: block; margin-top: 0.25rem;">≈ 0.00 g</small></div>
             <div><label for="param-num-amostras">Nº Amostras para Média</label><input id="param-num-amostras" type="number"></div>
             <div><label for="param-timeout">Timeout de Calibração (ms)</label><input id="param-timeout" type="number"></div>
           </div>
