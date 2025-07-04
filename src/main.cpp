@@ -296,7 +296,6 @@ void handleFileRequest() {
     if (path.endsWith(".html")) contentType = "text/html";
     else if (path.endsWith(".css")) contentType = "text/css";
     else if (path.endsWith(".js")) contentType = "application/javascript";
-    else if ()
     
     if (SPIFFS.exists(path)) {
         File file = SPIFFS.open(path, "r");
