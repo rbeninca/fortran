@@ -20,6 +20,17 @@
 #define OLED_SCL 12 // GPIO12 -> D6 na placa
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// --- NOVAS VARIÁVEIS PARA O BUFFER (VERSÃO 2) ---
+// Em 300ms, com leituras a cada 10ms, teremos 30 leituras.
+// Aumentamos um pouco para segurança.
+const int NUM_READINGS_IN_BUFFER = 35; 
+// Cada objeto no buffer tem 4 pares chave-valor ("type", "tempo", "forca", "status").
+// O tamanho é: 1 Array de 35 posições + 35 Objetos de 4 pares cada.
+StaticJsonDocument<JSON_ARRAY_SIZE(NUM_READINGS_IN_BUFFER) + NUM_READINGS_IN_BUFFER * JSON_OBJECT_SIZE(4)> bufferDoc;
+// Timer para controlar o envio do buffer
+unsigned long lastBroadcastTime = 0; 
+char jsonOutputBuffer[3500];
+
 // --- ESTRUTURA DE CONFIGURAÇÃO ---
 struct Config {
     unsigned long magic_number = 123456789;
@@ -124,6 +135,17 @@ void setup() {
 
     webSocket.onEvent(onWebSocketEvent);
     webSocket.begin();
+     // Inicializa o documento JSON para ser um Array que servirá de buffer
+    bufferDoc.to<JsonArray>();
+
+   
+
+    // Inicia o timer de envio
+    lastBroadcastTime = millis();
+
+    balancaStatus = "Pronta";
+    atualizarDisplay(balancaStatus, pesoAtual_g);
+    Serial.println("\nSetup concluído. Balança pronta.");
 
     balancaStatus = "Pronta";
     atualizarDisplay(balancaStatus, pesoAtual_g);
@@ -132,56 +154,96 @@ void setup() {
 // =======================================================
 // LOOP (CÓDIGO PRINCIPAL)
 // =======================================================
+// =======================================================
+// LOOP COMPLETO, CORRIGIDO E ESTÁVEL
+// =======================================================
 void loop() {
     webSocket.loop();
     server.handleClient();
-    delay(2);
-    if (millis() - lastReadTime >=10 ) {
+
+    // -------------------------------------------------------------------
+    // TAREFA 1: COLETOR DE DADOS (executa a cada 10ms)
+    // A única responsabilidade deste bloco é ADICIONAR leituras ao buffer.
+    // -------------------------------------------------------------------
+    if (millis() - lastReadTime >= 12.5) {
         lastReadTime = millis();
-        
+
+        // Se estiver em um processo especial como tarar, não faz leituras.
         if (balancaStatus.indexOf("Tarar") != -1 || balancaStatus.indexOf("Calibrar") != -1) {
             return;
         }
-        
+
         if (loadcell.is_ready()) {
             balancaStatus = "Pesando";
             pesoAtual_g = loadcell.get_units(1);
-            //pesoAtual_g = get_units_ema(); // Usando a média móvel exponencial 
             if (config.conversionFactor < 0) {
                 pesoAtual_g *= -1;
             }
-            
-            StaticJsonDocument<200> doc;
 
+            // Pega a referência do nosso array de buffer
+            JsonArray readingsArray = bufferDoc.as<JsonArray>();
             
-            doc["type"] = "data";
-            doc["tempo"] = millis() / 1000.0;
-            // Converte a massa (em kg) para força (em Newtons) usando F = m * g
-            doc["forca"] = (pesoAtual_g / 1000.0) * config.gravity; 
-            doc["status"] = balancaStatus;
-            String output;
-            serializeJson(doc, output);
-            webSocket.broadcastTXT(output);
-            // Atualiza o display OLED no minimamente a cada 500ms
-            delay(2);
-            if (millis() - lastReadTime >= 500) {
-                atualizarDisplay(balancaStatus, pesoAtual_g);
-                verificarClientesWebSocket();
-            }
-            delay(3); // Pequeno delay para evitar sobrecarga do processador
-        } else {
-            broadcastStatus("info", "Aguardando celula...");
+            // Cria um novo objeto JSON para a leitura atual e o adiciona ao array
+            JsonObject readingObj = readingsArray.createNestedObject();
+            
+            // Preenche o objeto com a estrutura original completa
+            readingObj["type"] = "data";
+            readingObj["tempo"] = millis() / 1000.0;
+            readingObj["forca"] = (pesoAtual_g / 1000.0) * config.gravity; 
+            readingObj["status"] = balancaStatus;
         }
     }
+
+    // -------------------------------------------------------------------
+    // TAREFA 2: CARTEIRO / ENVIADOR (executa a cada 300ms)
+    // A única responsabilidade deste bloco é ENVIAR o buffer e limpá-lo.
+    // -------------------------------------------------------------------
+    if (millis() - lastBroadcastTime >= 125) {
+        lastBroadcastTime = millis();
+
+        JsonArray readingsArray = bufferDoc.as<JsonArray>();
+        
+        // Só faz algo se o buffer tiver leituras para enviar
+        if (!readingsArray.isNull() && readingsArray.size() > 0) {
+            
+            // Serializa o bufferDoc diretamente para nosso buffer de char estático (sem usar String!)
+            size_t jsonSize = serializeJson(bufferDoc, jsonOutputBuffer);
+            
+            // Envia o buffer de caracteres pela rede
+            webSocket.broadcastTXT(jsonOutputBuffer, jsonSize);
+
+            // Limpa o documento JSON inteiro, preparando-o para o próximo lote.
+            // Esta é a forma mais segura de limpar.
+            bufferDoc.clear();
+            bufferDoc.to<JsonArray>(); // Reinicializa como um array vazio.
+
+            // Mensagem de depuração para confirmar o envio e a saúde da memória
+           // Serial.printf("[Broadcast] Enviado lote de %d leituras. Tamanho: %u bytes. Heap Livre: %u\n", readingsArray.size(), jsonSize, ESP.getFreeHeap());
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // TAREFA 3: ATUALIZADOR DE TELA E PING (executa a cada 500ms)
+    // Responsável por tarefas secundárias da interface.
+    // -------------------------------------------------------------------
+    if (millis() - lastDisplayUpdateedTime >= 500) {
+        lastDisplayUpdateedTime = millis();
+        atualizarDisplay(balancaStatus, pesoAtual_g);
+        verificarClientesWebSocket(); // Lembre-se de usar a versão com sendPing() aqui!
+    }
 }
+
 
 void verificarClientesWebSocket() {
   for (uint8_t i = 0; i < webSocket.connectedClients(); i++) {
     // Tenta enviar uma mensagem vazia para testar se o cliente está respondendo
-    bool ok = webSocket.sendTXT(i, "");
-    if (!ok) {
-      Serial.printf("[WebSocket] Cliente %u parece travado. Desconectando...\n", i);
-      webSocket.disconnect(i);
+    // bool ok = webSocket.sendTXT(i, "");
+    // if (!ok) {
+    //   Serial.printf("[WebSocket] Cliente %u parece travado. Desconectando...\n", i);
+    //   webSocket.disconnect(i);
+    // }
+      if(!webSocket.sendPing(i)){
+        Serial.printf("[WebSocket] Falha ao enviar PING para o cliente %u\n", i);
     }
   }
 }
@@ -296,6 +358,7 @@ void handleFileRequest() {
     if (path.endsWith(".html")) contentType = "text/html";
     else if (path.endsWith(".css")) contentType = "text/css";
     else if (path.endsWith(".js")) contentType = "application/javascript";
+    
     
     if (SPIFFS.exists(path)) {
         File file = SPIFFS.open(path, "r");

@@ -1,8 +1,8 @@
 // --- Variáveis Globais do Worker ---
 let socket;
 let dataBuffer = []; // Buffer para acumular dados antes de enviar para a UI
-let gravity = 9.80665; // Valor padrão, será atualizado pela config
-let emaAlpha = 0.2; // Fator de suavização para EMA
+let gravity = 9.80665; // Valor padrão, será atualizado pela config do ESP
+let emaAlpha = 0.2; // Fator de suavização para Média Móvel Exponencial (EMA)
 let emaValue = 0;
 let emaInitialized = false;
 let maxForce = -Infinity;
@@ -13,20 +13,18 @@ let lastRpsUpdateTime = Date.now();
 let lastCalculatedRps = 0;
 
 /**
- * Conecta ao servidor WebSocket do ESP32.
+ * Conecta ao servidor WebSocket do ESP8266.
  */
 function connectWebSocket() {
-
     // Evita criar múltiplas conexões se uma já estiver ativa ou tentando conectar.
     if (socket && socket.readyState !== WebSocket.CLOSED) {
         return;
     }
-    // Tenta conectar usando o hostname da página. Altere para IP fixo se necessário.
-    //const wsURL = `ws://${self.location.hostname}:81`;
-     const wsURL = `ws://192.168.1.2:81`; // Exemplo com IP fixo
-
+    // O endereço IP deve ser o do seu ESP8266.
+    // Use '192.168.4.1' se estiver conectado ao Access Point da balança.
+   // const wsURL = `ws://192.168.1.2:81`; 
+    const wsURL = `ws://192.168.4.1:81`; 
     socket = new WebSocket(wsURL);
-    socket.timeout = 500; // 500 milissegundos de timeout para conexão
 
     socket.onopen = () => {
         self.postMessage({ type: 'status', status: 'connected', message: 'Conectado ao dispositivo' });
@@ -34,72 +32,82 @@ function connectWebSocket() {
 
     socket.onclose = () => {
         self.postMessage({ type: 'status', status: 'disconnected', message: 'Desconectado. Tentando reconectar...' });
-        socket = null; // Limpa a referência do socket
+        socket = null; // Limpa a referência para forçar a reconexão.
     };
 
     socket.onerror = (error) => {
         self.postMessage({ type: 'status', status: 'error', message: 'Erro na conexão WebSocket.' });
         console.error("WebSocket Error:", error);
-        socket = null; // Limpa a referência do socket
-      
+        socket = null; // Limpa a referência para forçar a reconexão.
     };
 
+    /**
+     * Manipulador de mensagens recebidas do WebSocket.
+     * Esta é a função principal que processa os dados da balança.
+     */
     socket.onmessage = (event) => {
-        // Verifica se o dado recebido é uma string e se parece com um objeto JSON.
-        if (typeof event.data === 'string' && event.data.startsWith('{')) {
+        // A string de dados pode começar com '[' (array de dados) ou '{' (objeto de status/config).
+        if (typeof event.data === 'string' && (event.data.startsWith('[') || event.data.startsWith('{'))) {
             try {
                 const data = JSON.parse(event.data);
+                
+                // 1. VERIFICA SE A MENSAGEM É UM LOTE DE DADOS (ARRAY)
+                if (Array.isArray(data)) {
+                    // Se for um array, processamos cada item como um ponto de dado individual.
+                    data.forEach(reading => {
+                      processDataPoint(reading);
+                    });
+                }   
+                // 2. SE NÃO FOR UM ARRAY, VERIFICA SE É UMA MENSAGEM ÚNICA (OBJETO)
+                else if (typeof data === 'object' && data.type) {
+                    switch (data.type) {
+                        case "config":
+                            if (data.gravity) {
+                                gravity = parseFloat(data.gravity);
+                            }
+                            // Retransmite a configuração para a UI principal.
+                            self.postMessage({ type: 'config', payload: data });
+                            break;
 
-                switch (data.type) {
-                    // Mensagem com dados de medição
-                    case "data":
-                        processDataPoint(data);
-                        break;
-                    
-                    // Mensagem com os parâmetros de configuração do ESP32
-                    case "config":
-                        if (data.gravity) {
-                            gravity = parseFloat(data.gravity);
-                        }
-                        // Retransmite a configuração para a UI
-                        self.postMessage({ type: 'config', payload: data });
-                        break;
-
-                    // Mensagem de status (ex: "Calibrando...", "Tara OK")
-                    case "status":
-                        self.postMessage({ type: 'status', status: data.status, message: data.message });
-                        break;
+                        case "status":
+                            // Retransmite a mensagem de status para a UI principal.
+                            self.postMessage({ type: 'status', status: data.status, message: data.message });
+                            break;
+                    }
                 }
             } catch (e) {
-                // Se o parse falhar, trata como uma mensagem de status de texto.
-                console.warn("Worker: JSON malformado, tratando como status.", event.data);
+                console.warn("Worker: JSON malformado ou tipo de dado inesperado.", event.data);
                 self.postMessage({ type: 'status', status: 'info', message: event.data });
             }
         } else {
-            // Se não for um JSON, trata como uma mensagem de status de texto puro.
+            // Trata mensagens que não são JSON (texto puro).
             self.postMessage({ type: 'status', status: 'info', message: event.data });
         }
     };
 }
 
 /**
- * Processa um único ponto de dado recebido do ESP32.
- * @param {object} data - O objeto de dados com {tempo, forca}.
+ * Processa um ÚNICO ponto de dado recebido do ESP32.
+ * Esta função é chamada para cada item dentro do lote (array) recebido.
+ * @param {object} data - O objeto de dados com {type, tempo, forca, status}.
  */
 function processDataPoint(data) {
+    // Garante que estamos processando apenas mensagens do tipo 'data'.
+    if (data.type !== 'data') return;
+
     const forceN = data.forca;
     
-    // Atualiza a força máxima
+    // Atualiza a força máxima.
     if (forceN > maxForce) {
         maxForce = forceN;
     }
 
-    // Calcula a Média Móvel Exponencial (EMA)
+    // Calcula a Média Móvel Exponencial (EMA).
     const ema = getEmaValue(forceN);
-    // Calcula a massa em kg
+    // Calcula a massa em kg.
     const massaKg = gravity > 0 ? forceN / gravity : 0;
 
-    // Adiciona o dado processado ao buffer
+    // Adiciona o dado processado ao buffer, que será enviado para a UI.
     dataBuffer.push({
         tempo: data.tempo,
         forca: forceN,
@@ -108,7 +116,7 @@ function processDataPoint(data) {
         massaKg: massaKg
     });
 
-    // Incrementa o contador para o cálculo de RPS
+    // Incrementa o contador para o cálculo de Leituras por Segundo (RPS).
     readingsCounter++;
 }
 
@@ -128,21 +136,21 @@ function getEmaValue(newValue) {
 }
 
 /**
- * Manipulador de mensagens vindas da thread principal (script.js).
+ * Manipulador de mensagens vindas da thread principal (UI, script.js).
  */
 self.onmessage = (e) => {
     const { type, payload } = e.data;
 
     switch (type) {
-        // A UI está pedindo os dados acumulados
+        // A UI está pedindo os dados acumulados para desenhar o gráfico.
         case 'solicitarDados':
             if (dataBuffer.length > 0) {
                 self.postMessage({ type: 'dadosDisponiveis', payload: dataBuffer });
-                dataBuffer = []; // Limpa o buffer após o envio
+                dataBuffer = []; // Limpa o buffer após o envio.
             }
             break;
 
-        // A UI está pedindo as leituras por segundo
+        // A UI está pedindo a taxa de leituras por segundo.
         case 'getRPS':
             const now = Date.now();
             if (now - lastRpsUpdateTime >= 1000) {
@@ -153,7 +161,7 @@ self.onmessage = (e) => {
             self.postMessage({ type: 'rps', payload: lastCalculatedRps });
             break;
 
-        // A UI está enviando um comando para o ESP32
+        // A UI está enviando um comando para o ESP32 (ex: 't' para tarar).
         case 'sendCommand':
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(payload);
@@ -166,13 +174,10 @@ self.onmessage = (e) => {
 /**
  * Inicia o Gerenciador de Conexão.
  * Este loop verifica o estado da conexão a cada 2 segundos e tenta conectar se necessário.
- * Isso garante uma reconexão rápida e evita o backoff exponencial do navegador.
  */
 setInterval(() => {
-    if (socket==null || socket.readyState === WebSocket.CLOSED) {
-        connectWebSocket();
+    if (socket == null || socket.readyState === WebSocket.CLOSED) {
         console.log("Tentando reconectar ao WebSocket...");
+        connectWebSocket();
     }
-}, 2000); 
-// Inicia a conexão WebSocket assim que o worker é carregado.
-
+}, 2000);
