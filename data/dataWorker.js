@@ -20,10 +20,15 @@ function connectWebSocket() {
     if (socket && socket.readyState !== WebSocket.CLOSED) {
         return;
     }
+    
+    
     // O endereço IP deve ser o do seu ESP8266.
+    const port =location.port;
+    if (port==5500){}
+    console.log(location.port);
     // Use '192.168.4.1' se estiver conectado ao Access Point da balança.
-   // const wsURL = `ws://192.168.1.2:81`; 
-    const wsURL = `ws://192.168.4.1:81`; 
+     //const wsURL = `ws://192.168.1.2:81`; 
+    const wsURL = `ws://localhost:81`; 
     socket = new WebSocket(wsURL);
 
     socket.onopen = () => {
@@ -76,7 +81,7 @@ function connectWebSocket() {
                     }
                 }
             } catch (e) {
-                console.warn("Worker: JSON malformado ou tipo de dado inesperado.", event.data);
+                //console.warn("Worker: JSON malformado ou tipo de dado inesperado.", event.data);
                 self.postMessage({ type: 'status', status: 'info', message: event.data });
             }
         } else {

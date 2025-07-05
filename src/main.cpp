@@ -175,7 +175,7 @@ void loop() {
 
         if (loadcell.is_ready()) {
             balancaStatus = "Pesando";
-            pesoAtual_g = loadcell.get_units(1);
+            pesoAtual_g = loadcell.get_units(3);
             if (config.conversionFactor < 0) {
                 pesoAtual_g *= -1;
             }
@@ -198,7 +198,7 @@ void loop() {
     // TAREFA 2: CARTEIRO / ENVIADOR (executa a cada 300ms)
     // A única responsabilidade deste bloco é ENVIAR o buffer e limpá-lo.
     // -------------------------------------------------------------------
-    if (millis() - lastBroadcastTime >= 125) {
+    if (millis() - lastBroadcastTime >= 250) {
         lastBroadcastTime = millis();
 
         JsonArray readingsArray = bufferDoc.as<JsonArray>();

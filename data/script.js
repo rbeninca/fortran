@@ -1,7 +1,7 @@
 // --- Variáveis Globais da UI ---
 let chart;
 let dataWorker;
-const MAX_DATA_POINTS = 120; // Pontos no gráfico deslizante
+const MAX_DATA_POINTS = 60; // Pontos no gráfico deslizante
 let chartMode = 'deslizante';
 let displayUnit = 'kgf';
 let maxForceInN = -Infinity;
@@ -23,11 +23,25 @@ window.onload = () => {
     lineSmooth: Chartist.Interpolation.cardinal({ tension: 0 }),
     axisX: { showGrid: true, showLabel: true ,
              labelInterpolationFnc: (value) => value +"s"},
-    axisY: { showGrid: true, showLabel: true },
+    axisY: { showGrid: true, showLabel: true},
     fullWidth: true,
     chartPadding: { right: 40 }
   };
   chart = new Chartist.Line('#grafico', chartData, chartOptions);
+  chart.on('draw', function(data) {
+  if (data.type === 'point') {
+    const svg = data.group._node.ownerSVGElement;
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", data.x);
+    text.setAttribute("y", data.y - 10); // desloca um pouco acima do ponto
+    text.setAttribute("text-anchor", "middle");
+    text.setAttribute("font-size", "10px");
+    text.setAttribute("fill", "#555");
+    text.textContent = data.value.y.toFixed(2); // valor do ponto com 2 casas
+    svg.appendChild(text);
+  }
+});
+
 
   // Configura estado inicial dos botões
   setDisplayUnit('kgf');
