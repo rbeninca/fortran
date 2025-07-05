@@ -10,6 +10,7 @@ let chartData = { labels: [], series: [[]] };
 let rawDataN = []; // Armazena os dados brutos em Newtons para recalcular o gráfico
 let connectionTimeout; // Temporizador para detectar perda de conexão
 let antiNoisingAtivo = false;
+let isSessionActive = false; // <<< NOVO: Controla se a gravação na tabela está ativa
 
 // --- Funções de Inicialização ---
 window.onload = () => {
@@ -60,7 +61,6 @@ function conectarWorker() {
 
 /**
  * Reinicia o temporizador de timeout da conexão.
- * Se nenhuma mensagem for recebida em um certo tempo, a conexão é considerada perdida.
  */
 function resetConnectionTimeout() {
   clearTimeout(connectionTimeout);
@@ -118,8 +118,6 @@ function updateUIFromData(dado) {
   if (forca > maxForceInN) maxForceInN = forca;
   if (forca < minForceInN) minForceInN = forca;
 
-  rawDataN.push(forca); // Adiciona a leitura em Newtons ao array bruto
-
   let forcaFiltrada = forca;
   if (antiNoisingAtivo) {
     const toleranciaBruta = parseFloat(document.getElementById("param-tolerancia").value);
@@ -139,31 +137,29 @@ function updateUIFromData(dado) {
   const emaDisplay = convertForce(ema, displayUnit);
   const minDisplayForce = convertForce(minForceInN, displayUnit);
 
-  // Atualiza os painéis de leitura (SEMPRE ATUALIZA, MESMO PAUSADO)
+  // Atualiza os painéis de leitura (SEMPRE ATUALIZA)
   document.getElementById('forca-atual').textContent = `${formatForce(displayForce, displayUnit)} ${displayUnit}`;
   document.getElementById('forca-maxima').textContent = `${formatForce(maxDisplayForce, displayUnit)} ${displayUnit}`;
   document.getElementById('forca-minima').textContent = `mín: ${formatForce(minDisplayForce, displayUnit)} ${displayUnit}`;
   document.getElementById('forca-ems').textContent = `${formatForce(emaDisplay, displayUnit)} ${displayUnit}`;
 
-  // =================================================================
-  // ALTERAÇÃO PRINCIPAL AQUI
-  // Atualiza o gráfico e a tabela APENAS se não estiver pausado.
-  // =================================================================
+  // Atualiza o gráfico se não estiver pausado.
   if (chartMode !== 'pausado') {
-    // 1. Atualiza os dados do gráfico
+    rawDataN.push(forca); // Adiciona ao array bruto para recalcular unidades
     chartData.labels.push(tempo.toFixed(1));
     chartData.series[0].push(parseFloat(formatForce(displayForce, displayUnit)));
 
     if (chartMode === 'deslizante' && chartData.labels.length > MAX_DATA_POINTS) {
       chartData.labels.shift();
       chartData.series[0].shift();
-      rawDataN.shift(); // Mantém o array bruto sincronizado
+      rawDataN.shift(); 
     }
-    
-    // 2. Redesenha o gráfico
     chart.update(chartData);
+  }
 
-    // 3. Adiciona a nova leitura à tabela (LÓGICA MOVIDA PARA CÁ)
+  // Adiciona a nova leitura à tabela APENAS se uma sessão estiver ativa.
+  // A gravação na tabela continua mesmo se o gráfico estiver pausado.
+  if (isSessionActive) {
     const tbody = document.getElementById("tabela").querySelector("tbody");
     const linha = tbody.insertRow(0); // Insere no topo
     const agora = new Date();
@@ -175,12 +171,94 @@ function updateUIFromData(dado) {
     linha.insertCell(3).innerText = (massaKg * 1000).toFixed(1);
     linha.insertCell(4).innerText = massaKg.toFixed(4);
 
-    // Limita o tamanho da tabela para não travar o navegador
     if (tbody.rows.length > 5000) {
       tbody.deleteRow(tbody.rows.length - 1);
     }
   }
 }
+
+// --- NOVAS FUNÇÕES DE CONTROLE DE SESSÃO ---
+
+function iniciarSessao() {
+    const nomeSessaoInput = document.getElementById('nome-sessao');
+    const nomeSessao = nomeSessaoInput.value.trim();
+    if (!nomeSessao) {
+        showNotification('error', 'Por favor, insira um nome para a sessão.');
+        nomeSessaoInput.focus();
+        return;
+    }
+
+    // Limpa a tabela e o gráfico para a nova sessão
+    clearChart(); 
+    document.getElementById("tabela").querySelector("tbody").innerHTML = '';
+
+
+    isSessionActive = true;
+    showNotification('success', `Sessão "${nomeSessao}" iniciada. Gravando dados...`);
+
+    // Gerencia o estado dos botões
+    document.getElementById('btn-iniciar-sessao').disabled = true;
+    nomeSessaoInput.disabled = true;
+    document.getElementById('btn-encerrar-sessao').disabled = false;
+}
+
+function encerrarSessao() {
+    if (!isSessionActive) return;
+
+    const nomeSessao = document.getElementById('nome-sessao').value.trim();
+    const tabela = document.getElementById("tabela").querySelector("tbody");
+
+    if (tabela.rows.length === 0) {
+        showNotification('info', 'Nenhum dado foi gravado nesta sessão. Nada foi salvo.');
+    } else {
+        // Chama a função para salvar os dados da tabela no Local Storage
+        salvarDadosDaSessao(nomeSessao, tabela);
+    }
+
+    isSessionActive = false;
+
+    // Reseta o estado dos botões para permitir uma nova sessão
+    const nomeSessaoInput = document.getElementById('nome-sessao');
+    document.getElementById('btn-iniciar-sessao').disabled = false;
+    nomeSessaoInput.disabled = false;
+    nomeSessaoInput.value = ''; 
+    document.getElementById('btn-encerrar-sessao').disabled = true;
+}
+
+function salvarDadosDaSessao(nome, tabela) {
+    const dadosTabela = [];
+    // Itera pelas linhas da tabela para montar o objeto de gravação
+    for (const linha of tabela.rows) {
+        dadosTabela.push({
+            timestamp: linha.cells[0].innerText,
+            tempo_esp: linha.cells[1].innerText,
+            newtons: linha.cells[2].innerText,
+            grama_forca: linha.cells[3].innerText,
+            quilo_forca: linha.cells[4].innerText
+        });
+    }
+
+    const gravacao = {
+        id: Date.now(),
+        nome: nome,
+        timestamp: new Date().toISOString(),
+        dadosTabela: dadosTabela.reverse() // Salva na ordem cronológica correta
+    };
+
+    try {
+        let gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
+        gravacoes.push(gravacao);
+        localStorage.setItem('balancaGravacoes', JSON.stringify(gravacoes));
+        showNotification('success', `Sessão "${nome}" salva com sucesso!`);
+        carregarGravacoes(); // Atualiza a lista de gravações salvas na UI
+    } catch (e) {
+        showNotification('error', 'Erro ao salvar. O Local Storage pode estar cheio.');
+        console.error("Erro ao salvar no LocalStorage:", e);
+    }
+}
+
+
+// --- Funções de UI e Utilitários (demais funções sem alteração) ---
 
 function updateConfigForm(config) {
   const getValue = (val) => (val !== null && val !== undefined) ? val : '';
@@ -211,7 +289,6 @@ function updateReadingsPerSecond() {
   }
 }
 
-// --- Funções de Controle (Enviando Comandos para o Worker) ---
 function sendCommandToWorker(command, value = null) {
   if (dataWorker) {
     const message = value !== null ? `${command}:${value}` : command;
@@ -256,7 +333,6 @@ function salvarParametros() {
   showNotification('success', 'Parâmetros enviados para salvamento no ESP32.');
 }
 
-// --- Funções de UI e Utilitários ---
 function formatForce(value, unit) {
   if (unit === 'N') return value.toFixed(4);
   if (unit === 'gf') return value.toFixed(0);
@@ -276,11 +352,9 @@ function setDisplayUnit(unit) {
   document.querySelectorAll('#btn-unit-n, #btn-unit-gf, #btn-unit-kgf').forEach(b => b.classList.remove('ativo'));
   document.getElementById(`btn-unit-${unit.toLowerCase()}`).classList.add('ativo');
 
-  // Recalcula e atualiza o gráfico com a nova unidade
   chartData.series[0] = rawDataN.map(forceN => parseFloat(formatForce(convertForce(forceN, unit), unit)));
   chart.update(chartData);
 
-  // Atualiza as leituras atuais e máximas
   const currentForceN = rawDataN.length > 0 ? rawDataN[rawDataN.length - 1] : 0;
   const currentDisplayForce = convertForce(currentForceN, displayUnit);
   const maxDisplayForce = convertForce(maxForceInN, displayUnit);
@@ -303,9 +377,8 @@ function clearChart() {
   document.getElementById('forca-atual').textContent = `--- ${displayUnit}`;
   document.getElementById('forca-maxima').textContent = `--- ${displayUnit}`;
   document.getElementById('forca-minima').textContent = `--- ${displayUnit}`;
-  document.getElementById("tabela").querySelector("tbody").innerHTML = '';
   chart.update(chartData);
-  showNotification("info", "Sessão atual limpa.", 3000);
+  showNotification("info", "Gráfico limpo.", 3000);
 }
 
 function abrirAba(element, abaID) {
@@ -330,7 +403,6 @@ function showNotification(type, message, duration = 5000) {
   }, duration);
 }
 
-// --- Funções de Gravação e Rede Wi-Fi (LocalStorage e Fetch API) ---
 function salvarRede(event) {
   event.preventDefault();
   const form = new FormData(event.target);
@@ -338,47 +410,6 @@ function salvarRede(event) {
     .then(r => r.text())
     .then(text => showNotification("success", text))
     .catch(err => showNotification("error", "Falha ao salvar a rede: " + err));
-}
-
-function salvarGravacao() {
-  const nomeInput = document.getElementById('nome-gravacao');
-  const nome = nomeInput.value.trim();
-  if (!nome) {
-    showNotification('error', 'Digite um nome para a gravação.', 3000);
-    nomeInput.focus();
-    return;
-  }
-  const tabela = document.getElementById("tabela").querySelector("tbody");
-  if (tabela.rows.length === 0) {
-    showNotification('error', 'Não há dados para salvar.', 3000);
-    return;
-  }
-  const dadosTabela = [];
-  for (const linha of tabela.rows) {
-    dadosTabela.push({
-      timestamp: linha.cells[0].innerText,
-      tempo_esp: linha.cells[1].innerText,
-      newtons: linha.cells[2].innerText,
-      grama_forca: linha.cells[3].innerText,
-      quilo_forca: linha.cells[4].innerText
-    });
-  }
-  const gravacao = {
-    id: Date.now(),
-    nome: nome,
-    timestamp: new Date().toISOString(),
-    dadosTabela: dadosTabela.reverse() // Salva na ordem cronológica correta
-  };
-  try {
-    let gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
-    gravacoes.push(gravacao);
-    localStorage.setItem('balancaGravacoes', JSON.stringify(gravacoes));
-    showNotification('success', `Gravação "${nome}" salva!`);
-    carregarGravacoes();
-    nomeInput.value = '';
-  } catch (e) {
-    showNotification('error', 'Erro ao salvar. O Local Storage pode estar cheio.');
-  }
 }
 
 function carregarGravacoes() {
@@ -389,7 +420,7 @@ function carregarGravacoes() {
     container.innerHTML = '<p>Nenhuma gravação encontrada.</p>';
     return;
   }
-  gravacoes.sort((a, b) => b.id - a.id); // Ordena da mais nova para a mais antiga
+  gravacoes.sort((a, b) => b.id - a.id); 
   gravacoes.forEach(gravacao => {
     const dataFormatada = new Date(gravacao.timestamp).toLocaleString('pt-BR');
     const card = document.createElement('div');
