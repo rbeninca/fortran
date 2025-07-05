@@ -24,11 +24,13 @@ function connectWebSocket() {
     
     // O endereço IP deve ser o do seu ESP8266.
     const port =location.port;
-    if (port==5500){}
-    console.log(location.port);
-    // Use '192.168.4.1' se estiver conectado ao Access Point da balança.
-     //const wsURL = `ws://192.168.1.2:81`; 
-    const wsURL = `ws://localhost:81`; 
+    if (port==5500){
+        var url="192.168.1.2"
+    }else{
+        var url=localhost.hostname;
+    }
+    //const wsURL = `ws://192.168.1.2:81`;
+    const wsURL = `ws://`+url+`:81`;
     socket = new WebSocket(wsURL);
 
     socket.onopen = () => {
@@ -185,4 +187,4 @@ setInterval(() => {
         console.log("Tentando reconectar ao WebSocket...");
         connectWebSocket();
     }
-}, 2000);
+}, 5000);

@@ -179,7 +179,8 @@ void loop() {
             if (config.conversionFactor < 0) {
                 pesoAtual_g *= -1;
             }
-
+            //imprime na serial o peso atual em gramas e o millis() atual no formato de objeto JSON  {}
+            Serial.printf("{\"Leitura\": %.2f g, \"Tempo\": %lu ms}\n", pesoAtual_g, millis());
             // Pega a referência do nosso array de buffer
             JsonArray readingsArray = bufferDoc.as<JsonArray>();
             
@@ -198,7 +199,7 @@ void loop() {
     // TAREFA 2: CARTEIRO / ENVIADOR (executa a cada 300ms)
     // A única responsabilidade deste bloco é ENVIAR o buffer e limpá-lo.
     // -------------------------------------------------------------------
-    if (millis() - lastBroadcastTime >= 250) {
+    if (millis() - lastBroadcastTime >= 500) {
         lastBroadcastTime = millis();
 
         JsonArray readingsArray = bufferDoc.as<JsonArray>();
@@ -226,7 +227,7 @@ void loop() {
     // TAREFA 3: ATUALIZADOR DE TELA E PING (executa a cada 500ms)
     // Responsável por tarefas secundárias da interface.
     // -------------------------------------------------------------------
-    if (millis() - lastDisplayUpdateedTime >= 500) {
+    if (millis() - lastDisplayUpdateedTime >= 200) {
         lastDisplayUpdateedTime = millis();
         atualizarDisplay(balancaStatus, pesoAtual_g);
         verificarClientesWebSocket(); // Lembre-se de usar a versão com sendPing() aqui!
@@ -306,6 +307,7 @@ void broadcastStatus(const char *type, const String &message) {
 }
 
 bool aguardarEstabilidade(const String &proposito) {
+    delay(100); // Espera 100ms para estabilizar antes de iniciar a leitura
     if (!loadcell.is_ready()) {
         broadcastStatus("error", "Célula de carga não pronta para iniciar.");
         return false;
@@ -317,7 +319,7 @@ bool aguardarEstabilidade(const String &proposito) {
     
     while (leiturasEstaveisCount < config.leiturasEstaveis) {
         // Verifica o timeout
-        if (millis() - inicioTimeout > 30000) { // Usando o timeout de 30s
+        if (millis() - inicioTimeout > 5000) { // Usando o timeout de 5s
             broadcastStatus("error", "Timeout! A balança não estabilizou a tempo.");
             balancaStatus = "Pronta"; // Reseta o status global após a falha
             return false;
