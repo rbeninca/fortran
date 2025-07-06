@@ -175,7 +175,7 @@ void loop() {
 
         if (loadcell.is_ready()) {
             balancaStatus = "Pesando";
-            pesoAtual_g = loadcell.get_units(3);
+            pesoAtual_g = loadcell.get_units(config.numAmostrasMedia);
             if (config.conversionFactor < 0) {
                 pesoAtual_g *= -1;
             }
@@ -227,7 +227,7 @@ void loop() {
     // TAREFA 3: ATUALIZADOR DE TELA E PING (executa a cada 500ms)
     // Responsável por tarefas secundárias da interface.
     // -------------------------------------------------------------------
-    if (millis() - lastDisplayUpdateedTime >= 200) {
+    if (millis() - lastDisplayUpdateedTime >= 500) {
         lastDisplayUpdateedTime = millis();
         atualizarDisplay(balancaStatus, pesoAtual_g);
         verificarClientesWebSocket(); // Lembre-se de usar a versão com sendPing() aqui!
@@ -445,14 +445,14 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
             else if (paramName == "numAmostrasMedia") { config.numAmostrasMedia = paramValue.toInt(); changed = true; }
             else if (paramName == "timeoutCalibracao") { config.timeoutCalibracao = paramValue.toInt(); changed = true; }
             else if (paramName == "tareOffset") { 
-                long newOffset = paramValue.toInt();
-                if (aguardarEstabilidade("Tara")) {
-                    loadcell.set_offset(newOffset);
-                    config.tareOffset = newOffset;
+                 long newOffset = paramValue.toInt();
+                // if (aguardarEstabilidade("Tara")) {
+                //     loadcell.set_offset(newOffset);
+                     config.tareOffset = newOffset;
                     changed = true;
-                                    } else {
-                    broadcastStatus("error", "Falha ao aplicar o novo offset. Balança não estabilizou.");
-                }
+                                    //} else {
+                    //broadcastStatus("error", "Falha ao aplicar o novo offset. Balança não estabilizou.");
+                //}
             }
 
             if (changed) { saveConfig(); broadcastStatus("success", "Parâmetro '" + paramName + "' salvo!"); }
