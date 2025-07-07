@@ -20,11 +20,12 @@
 #define OLED_SCL 12 // GPIO12 -> D6 na placa
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// --- CONFIGURAÇÃO DO BUFFER AINDA MAIS REDUZIDA ---
-const int NUM_READINGS_IN_BUFFER = 20; // Reduzido de 8 para 10
+// --- CONFIGURAÇÃO DO BUFFER ---
+const int NUM_READINGS_IN_BUFFER = 20;
 StaticJsonDocument<JSON_ARRAY_SIZE(NUM_READINGS_IN_BUFFER) + NUM_READINGS_IN_BUFFER * (JSON_OBJECT_SIZE(4)+10)> bufferDoc;
 unsigned long lastBroadcastTime = 0;
-char jsonOutputBuffer[1250]; // Reduzido de 1024
+char jsonOutputBuffer[1250];
+
 // --- ESTRUTURA DE CONFIGURAÇÃO ---
 struct Config {
   unsigned long magic_number = 123456789;
@@ -32,10 +33,10 @@ struct Config {
   char staPassword[32] = "aabbccddee";
   float conversionFactor = 21000.0;
   float gravity = 9.80665;
-  int leiturasEstaveis = 10; // Reduzido de 10 para 8
+  int leiturasEstaveis = 10;
   float toleranciaEstabilidade = 100.0;
-  int numAmostrasMedia = 3; // Reduzido de 5 para 3
-  unsigned long timeoutCalibracao = 20000; // Reduzido de 30000 para 20000
+  int numAmostrasMedia = 3;
+  unsigned long timeoutCalibracao = 20000;
   long tareOffset = 0;
 };
 Config config;
@@ -50,6 +51,7 @@ ESP8266WebServer server(80);
 WebSocketsServer webSocket(81);
 Ticker networkWatchdog;
 Ticker memoryWatchdog;
+Ticker wifiReconnectTicker;
 
 String balancaStatus = "Iniciando...";
 float pesoAtual_g = 0.0;
@@ -57,18 +59,29 @@ unsigned long lastReadTime = 0;
 unsigned long lastDisplayUpdateTime = 0;
 unsigned long lastNetworkActivity = 0;
 bool wifiConnected = false;
-bool networkStuck = false;
+bool apActive = false;
+bool systemOperational = true; // SEMPRE VERDADEIRO - sistema nunca para
 
-// --- CONTROLE DE REDE MAIS RIGOROSO ---
+// --- CONTROLE DE REDE MAIS INTELIGENTE ---
 unsigned long wifiReconnectAttempts = 0;
-const unsigned long MAX_WIFI_RECONNECT_ATTEMPTS = 2;
-const unsigned long WIFI_RECONNECT_DELAY = 3000;
-const unsigned long NETWORK_TIMEOUT = 60000; // 1 minuto sem atividade = reset
-const unsigned long MAX_HEAP_FRAGMENTATION = 50; // % máxima de fragmentação
+const unsigned long MAX_WIFI_RECONNECT_ATTEMPTS = 3;
+const unsigned long WIFI_RECONNECT_INTERVAL = 30000; // Tenta reconectar a cada 30s
+const unsigned long WIFI_CONNECTION_TIMEOUT = 10000; // Timeout de 10s para conectar
+const unsigned long CLIENT_TIMEOUT = 30000;
+const unsigned long MAX_HEAP_FRAGMENTATION = 50;
+
+// --- ESTADOS DE CONEXÃO ---
+enum BalancaWiFiState {
+  BALANCA_WIFI_DISCONNECTED,
+  BALANCA_WIFI_CONNECTING,
+  BALANCA_WIFI_CONNECTED,
+  BALANCA_WIFI_FAILED
+};
+BalancaWiFiState currentWiFiState = BALANCA_WIFI_DISCONNECTED;
+unsigned long lastWiFiAttempt = 0;
 
 // --- CONTROLE DE CLIENTES WEBSOCKET ---
-unsigned long lastClientActivity[10] = {0}; // Para até 10 clientes
-const unsigned long CLIENT_TIMEOUT = 30000; // 30 segundos sem atividade
+unsigned long lastClientActivity[10] = {0};
 
 // --- PROTÓTIPOS DE FUNÇÕES ---
 void atualizarDisplay(String status, float peso_em_gramas);
@@ -79,36 +92,27 @@ bool aguardarEstabilidade(const String &proposito);
 void handleFileRequest();
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_t length);
 void verificarClientesWebSocket();
-void forceNetworkReset();
 void networkWatchdogCallback();
 void memoryWatchdogCallback();
-void emergencyRestart();
+void wifiReconnectCallback();
 void limpezaProfundaMemoria();
-bool isNetworkHealthy();
+void initializeAP();
+void initializeServices();
+void attemptWiFiConnection();
+void handleWiFiStates();
+String getConnectionStatus();
 
 // =======================================================
 // SETUP (CONFIGURAÇÃO INICIAL)
 // =======================================================
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n\nBalança GFIG ESP8266 - Versão Ultra Robusta");
-
-  // Desabilita WiFi inicialmente para configuração limpa
-  WiFi.mode(WIFI_OFF);
-  delay(100);
-
-  // Configuração inicial do WiFi com parâmetros otimizados
-  WiFi.mode(WIFI_STA);
-  WiFi.setSleepMode(WIFI_NONE_SLEEP);
-  WiFi.setAutoReconnect(false); // Controle manual
-  WiFi.persistent(false); // Evita writes desnecessários na flash
-  WiFi.setPhyMode(WIFI_PHY_MODE_11N);
+  Serial.println("\n\nBalança GFIG ESP8266 - Versão Sempre Ativa");
 
   // Inicialização do display
   Wire.begin(OLED_SDA, OLED_SCL);
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("Falha ao iniciar display SSD1306."));
-    // Não trava, continua sem display
   }
   atualizarDisplay("Iniciando...", 0);
 
@@ -135,129 +139,65 @@ void setup() {
     }
   }
 
-  // Configuração do AP primeiro
-  atualizarDisplay("Config AP...", 0);
-  WiFi.softAP("balancaGFIG", "aabbccddee");
+  // === CONFIGURAÇÃO DE REDE SEMPRE ATIVA ===
+  
+  // Desabilita WiFi inicialmente para configuração limpa
+  WiFi.mode(WIFI_OFF);
   delay(100);
-  Serial.print("AP IP: ");
-  Serial.println(WiFi.softAPIP());
-
-  // Configuração do servidor web com timeouts reduzidos
-  server.on("/salvarRede", HTTP_POST, []() {
-    Serial.println("Salvando nova rede...");
-    if (server.hasArg("ssid") && server.hasArg("senha")) {
-      String newSSID = server.arg("ssid");
-      String newPassword = server.arg("senha");
-      
-      // Validação básica
-      if (newSSID.length() > 0 && newSSID.length() < 32) {
-        strncpy(config.staSSID, newSSID.c_str(), sizeof(config.staSSID) - 1);
-        strncpy(config.staPassword, newPassword.c_str(), sizeof(config.staPassword) - 1);
-        config.staSSID[sizeof(config.staSSID) - 1] = '\0';
-        config.staPassword[sizeof(config.staPassword) - 1] = '\0';
-        saveConfig();
-        server.send(200, "text/plain", "Rede salva. Reiniciando em 3s...");
-        delay(3000);
-        ESP.restart();
-      } else {
-        server.send(400, "text/plain", "SSID inválido");
-      }
-    } else {
-      server.send(400, "text/plain", "Parâmetros obrigatórios: ssid, senha");
-    }
-  });
   
-  server.on("/status", HTTP_GET, []() {
-    StaticJsonDocument<256> doc;
-    doc["heap"] = ESP.getFreeHeap();
-    doc["fragmentation"] = ESP.getHeapFragmentation();
-    doc["uptime"] = millis();
-    doc["wifi_status"] = WiFi.status();
-    doc["clients"] = webSocket.connectedClients();
-    String output;
-    serializeJson(doc, output);
-    server.send(200, "application/json", output);
-  });
-
-  server.on("/restart", HTTP_POST, []() {
-    server.send(200, "text/plain", "Reiniciando...");
-    delay(1000);
-    ESP.restart();
-  });
+  // Sempre inicializa o AP primeiro (PRIORIDADE MÁXIMA)
+  initializeAP();
   
-  server.onNotFound(handleFileRequest);
-  server.begin();
-
-  // Configuração do WebSocket com configurações otimizadas
-  webSocket.onEvent(onWebSocketEvent);
-  webSocket.begin();
-  webSocket.enableHeartbeat(15000, 3000, 2); // Heartbeat agressivo
-
-  // Inicialização do buffer JSON
+  // Inicializa todos os serviços (servidor web e websocket)
+  initializeServices();
+  
+  // Inicializa o buffer JSON
   bufferDoc.to<JsonArray>();
   lastBroadcastTime = millis();
   lastNetworkActivity = millis();
 
   // Configuração dos watchdogs
-  networkWatchdog.attach(30, networkWatchdogCallback); // Verifica rede a cada 30s
-  memoryWatchdog.attach(10, memoryWatchdogCallback);   // Verifica memória a cada 10s
+  networkWatchdog.attach(30, networkWatchdogCallback);
+  memoryWatchdog.attach(10, memoryWatchdogCallback);
+  wifiReconnectTicker.attach(5, wifiReconnectCallback); // Verifica WiFi a cada 5s
 
-  // Tentativa inicial de conexão WiFi
-  atualizarDisplay("Conectando WiFi...", 0);
+  // Tenta conectar ao WiFi configurado (sem bloquear)
   if (strlen(config.staSSID) > 0) {
-    WiFi.begin(config.staSSID, config.staPassword);
-    unsigned long startTime = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) {
-      delay(200);
-      yield();
-      ESP.wdtFeed();
-    }
-    
-    if (WiFi.status() == WL_CONNECTED) {
-      wifiConnected = true;
-      Serial.println("WiFi conectado inicialmente!");
-      Serial.print("IP: ");
-      Serial.println(WiFi.localIP());
-    }
+    attemptWiFiConnection();
   }
 
+  // Sistema sempre fica operacional
+  systemOperational = true;
   balancaStatus = "Pronta";
   atualizarDisplay(balancaStatus, pesoAtual_g);
-  Serial.println("Setup concluído. Sistema operacional.");
+  
+  Serial.println("=== SISTEMA OPERACIONAL ===");
+  Serial.print("AP IP: ");
+  Serial.println(WiFi.softAPIP());
+  Serial.println("Serviços ativos independente da conexão WiFi");
 }
 
 // =======================================================
-// LOOP PRINCIPAL ULTRA OTIMIZADO
+// LOOP PRINCIPAL - SEMPRE OPERACIONAL
 // =======================================================
 void loop() {
   // Alimenta o watchdog do sistema
   ESP.wdtFeed();
   
-  // Verifica se a rede está travada
-  if (networkStuck) {
-    Serial.println("[NETWORK] Rede travada detectada, forçando reset...");
-    forceNetworkReset();
-    return;
-  }
-
-  // Processa clientes rapidamente
-  unsigned long startProcess = millis();
+  // === SERVIÇOS SEMPRE ATIVOS ===
   webSocket.loop();
   server.handleClient();
   
-  // Se demorou muito para processar, há problema
-  if (millis() - startProcess > 100) {
-    Serial.println("[WARNING] Processamento lento detectado");
-    limpezaProfundaMemoria();
-  }
+  // Gerencia estados do WiFi (sem bloquear)
+  handleWiFiStates();
   
   yield();
 
-  // COLETOR DE DADOS - Frequência reduzida para 100ms
-  if (millis() - lastReadTime >=25) {
+  // === COLETOR DE DADOS - SEMPRE ATIVO ===
+  if (millis() - lastReadTime >= 25) {
     lastReadTime = millis();
 
-    // Pula leituras durante processos especiais
+    // Pula leituras apenas durante processos especiais
     if (balancaStatus.indexOf("Tarar") != -1 || balancaStatus.indexOf("Calibrar") != -1) {
       return;
     }
@@ -269,11 +209,11 @@ void loop() {
         pesoAtual_g *= -1;
       }
 
-      // Adiciona ao buffer apenas se há clientes conectados e rede saudável
-      if (webSocket.connectedClients() > 0 && isNetworkHealthy()) {
+      // Adiciona ao buffer SEMPRE que há clientes conectados
+      if (webSocket.connectedClients() > 0) {
         JsonArray readingsArray = bufferDoc.as<JsonArray>();
         
-        // Limita rigorosamente o tamanho do buffer
+        // Limita o tamanho do buffer
         while (readingsArray.size() >= NUM_READINGS_IN_BUFFER) {
           readingsArray.remove(0);
         }
@@ -289,33 +229,24 @@ void loop() {
     }
   }
 
-  // ENVIADOR DE DADOS - Frequência aumentada para 300ms
+  // === ENVIADOR DE DADOS - SEMPRE ATIVO ===
   if (millis() - lastBroadcastTime >= 300) {
     lastBroadcastTime = millis();
 
-    if (webSocket.connectedClients() > 0 && isNetworkHealthy()) {
+    if (webSocket.connectedClients() > 0) {
       JsonArray readingsArray = bufferDoc.as<JsonArray>();
       
       if (readingsArray.size() > 0) {
-        // Limita o tamanho máximo do JSON
         size_t jsonSize = measureJson(bufferDoc);
-        if (jsonSize < sizeof(jsonOutputBuffer) - 50) { // Margem de segurança
+        if (jsonSize < sizeof(jsonOutputBuffer) - 50) {
           jsonSize = serializeJson(bufferDoc, jsonOutputBuffer, sizeof(jsonOutputBuffer));
           
           if (jsonSize > 0) {
             bool success = webSocket.broadcastTXT(jsonOutputBuffer, jsonSize);
             if (success) {
               lastNetworkActivity = millis();
-            } else {
-              Serial.println("[WebSocket] Falha no envio, limpando clientes");
-              // Limpa clientes problemáticos
-              for (uint8_t i = 0; i < webSocket.connectedClients(); i++) {
-                webSocket.disconnect(i);
-              }
             }
           }
-        } else {
-          Serial.printf("[WARNING] JSON muito grande: %u bytes\n", jsonSize);
         }
         
         // Sempre limpa o buffer após tentativa de envio
@@ -326,7 +257,7 @@ void loop() {
     }
   }
 
-  // ATUALIZAÇÃO DE DISPLAY - Frequência reduzida para 1000ms
+  // === ATUALIZAÇÃO DE DISPLAY ===
   if (millis() - lastDisplayUpdateTime >= 1000) {
     lastDisplayUpdateTime = millis();
     atualizarDisplay(balancaStatus, pesoAtual_g);
@@ -334,21 +265,229 @@ void loop() {
 }
 
 // =======================================================
-// FUNÇÕES DE MONITORAMENTO E RECUPERAÇÃO
+// FUNÇÕES DE REDE SEMPRE ATIVA
+// =======================================================
+
+void initializeAP() {
+  Serial.println("Inicializando AP...");
+  atualizarDisplay("Iniciando AP...", 0);
+  
+  // Configura modo AP+STA para permitir ambos
+  WiFi.mode(WIFI_AP_STA);
+  
+  // Configura o AP com IP fixo
+  IPAddress apIP(192, 168, 4, 1);
+  IPAddress subnet(255, 255, 255, 0);
+  WiFi.softAPConfig(apIP, apIP, subnet);
+  
+  // Inicia o AP
+  bool apStarted = WiFi.softAP("balancaGFIG", "aabbccddee", 1, 0, 4);
+  
+  if (apStarted) {
+    apActive = true;
+    Serial.println("AP iniciado com sucesso!");
+    Serial.print("AP IP: ");
+    Serial.println(WiFi.softAPIP());
+  } else {
+    Serial.println("ERRO: Falha ao iniciar AP!");
+    // Tenta novamente
+    delay(1000);
+    WiFi.softAP("balancaGFIG", "aabbccddee");
+    apActive = true; // Assume que funcionou
+  }
+}
+
+void initializeServices() {
+  Serial.println("Inicializando serviços web...");
+  
+  // Configuração do servidor web
+  server.on("/salvarRede", HTTP_POST, []() {
+    Serial.println("Salvando nova rede...");
+    if (server.hasArg("ssid") && server.hasArg("senha")) {
+      String newSSID = server.arg("ssid");
+      String newPassword = server.arg("senha");
+      
+      if (newSSID.length() > 0 && newSSID.length() < 32) {
+        strncpy(config.staSSID, newSSID.c_str(), sizeof(config.staSSID) - 1);
+        strncpy(config.staPassword, newPassword.c_str(), sizeof(config.staPassword) - 1);
+        config.staSSID[sizeof(config.staSSID) - 1] = '\0';
+        config.staPassword[sizeof(config.staPassword) - 1] = '\0';
+        saveConfig();
+        
+        server.send(200, "text/plain", "Rede salva. Tentando conectar...");
+        
+        // Tenta conectar à nova rede
+        attemptWiFiConnection();
+      } else {
+        server.send(400, "text/plain", "SSID inválido");
+      }
+    } else {
+      server.send(400, "text/plain", "Parâmetros obrigatórios: ssid, senha");
+    }
+  });
+  
+  server.on("/status", HTTP_GET, []() {
+    StaticJsonDocument<512> doc;
+    doc["heap"] = ESP.getFreeHeap();
+    doc["fragmentation"] = ESP.getHeapFragmentation();
+    doc["uptime"] = millis();
+    doc["wifi_status"] = WiFi.status();
+    doc["wifi_ssid"] = WiFi.SSID();
+    doc["wifi_ip"] = WiFi.localIP().toString();
+    doc["ap_active"] = apActive;
+    doc["ap_ip"] = WiFi.softAPIP().toString();
+    doc["ap_clients"] = WiFi.softAPgetStationNum();
+    doc["websocket_clients"] = webSocket.connectedClients();
+    doc["system_operational"] = systemOperational;
+    doc["connection_status"] = getConnectionStatus();
+    
+    String output;
+    serializeJson(doc, output);
+    server.send(200, "application/json", output);
+  });
+
+  server.on("/restart", HTTP_POST, []() {
+    server.send(200, "text/plain", "Reiniciando...");
+    delay(1000);
+    ESP.restart();
+  });
+  
+  server.onNotFound(handleFileRequest);
+  server.begin();
+  Serial.println("Servidor web iniciado");
+
+  // Configuração do WebSocket
+  webSocket.onEvent(onWebSocketEvent);
+  webSocket.begin();
+  webSocket.enableHeartbeat(15000, 3000, 2);
+  Serial.println("WebSocket iniciado");
+}
+
+void attemptWiFiConnection() {
+  if (strlen(config.staSSID) == 0) {
+    Serial.println("Nenhuma rede configurada para conectar");
+    return;
+  }
+  
+  if (currentWiFiState == BALANCA_WIFI_CONNECTING) {
+    Serial.println("Já tentando conectar...");
+    return;
+  }
+  
+  Serial.printf("Tentando conectar a: %s\n", config.staSSID);
+  currentWiFiState = BALANCA_WIFI_CONNECTING;
+  lastWiFiAttempt = millis();
+  
+  // Não desconecta o AP
+  WiFi.begin(config.staSSID, config.staPassword);
+  
+  wifiReconnectAttempts++;
+}
+
+void handleWiFiStates() {
+  unsigned long currentTime = millis();
+  
+  switch (currentWiFiState) {
+    case BALANCA_WIFI_CONNECTING:
+      // Verifica se conectou
+      if (WiFi.status() == WL_CONNECTED) {
+        currentWiFiState = BALANCA_WIFI_CONNECTED;
+        wifiConnected = true;
+        wifiReconnectAttempts = 0;
+        Serial.println("WiFi conectado!");
+        Serial.print("IP: ");
+        Serial.println(WiFi.localIP());
+        broadcastStatus("success", "WiFi conectado");
+      }
+      // Verifica timeout
+      else if (currentTime - lastWiFiAttempt > WIFI_CONNECTION_TIMEOUT) {
+        currentWiFiState = BALANCA_WIFI_FAILED;
+        Serial.println("Timeout na conexão WiFi");
+        broadcastStatus("warning", "WiFi timeout");
+      }
+      break;
+      
+    case BALANCA_WIFI_CONNECTED:
+      // Verifica se desconectou
+      if (WiFi.status() != WL_CONNECTED) {
+        currentWiFiState = BALANCA_WIFI_DISCONNECTED;
+        wifiConnected = false;
+        Serial.println("WiFi desconectado");
+        broadcastStatus("warning", "WiFi desconectado");
+      }
+      break;
+      
+    case BALANCA_WIFI_FAILED:
+    case BALANCA_WIFI_DISCONNECTED:
+      // Não faz nada aqui - o ticker vai tentar reconectar
+      break;
+  }
+}
+
+void wifiReconnectCallback() {
+  // Só tenta reconectar se não está conectado e tem rede configurada
+  if (currentWiFiState != BALANCA_WIFI_CONNECTED && 
+      currentWiFiState != BALANCA_WIFI_CONNECTING &&
+      strlen(config.staSSID) > 0) {
+    
+    // Limita tentativas
+    if (wifiReconnectAttempts < MAX_WIFI_RECONNECT_ATTEMPTS) {
+      Serial.println("Tentando reconectar WiFi...");
+      attemptWiFiConnection();
+    } else {
+      // Reseta contador periodicamente
+      if (millis() - lastWiFiAttempt > 300000) { // 5 minutos
+        wifiReconnectAttempts = 0;
+        Serial.println("Resetando contador de tentativas WiFi");
+      }
+    }
+  }
+  
+  // Verifica se AP ainda está ativo
+  if (!apActive) {
+    Serial.println("AP inativo, reiniciando...");
+    initializeAP();
+  }
+}
+
+String getConnectionStatus() {
+  String status = "AP: ";
+  status += apActive ? "ON" : "OFF";
+  status += " | WiFi: ";
+  
+  switch (currentWiFiState) {
+    case BALANCA_WIFI_DISCONNECTED:
+      status += "OFF";
+      break;
+    case BALANCA_WIFI_CONNECTING:
+      status += "CONNECTING";
+      break;
+    case BALANCA_WIFI_CONNECTED:
+      status += "ON";
+      break;
+    case BALANCA_WIFI_FAILED:
+      status += "FAILED";
+      break;
+  }
+  
+  return status;
+}
+
+// =======================================================
+// FUNÇÕES DE MONITORAMENTO
 // =======================================================
 
 void networkWatchdogCallback() {
-  // Verifica se há atividade de rede recente
-  if (millis() - lastNetworkActivity > NETWORK_TIMEOUT) {
-    Serial.println("[WATCHDOG] Rede inativa por muito tempo");
-    networkStuck = true;
+  // Verifica se AP está ativo
+  if (!apActive) {
+    Serial.println("[WATCHDOG] AP inativo, reiniciando...");
+    initializeAP();
   }
   
-  // Verifica status do WiFi
-  if (WiFi.status() != WL_CONNECTED && wifiConnected) {
-    Serial.println("[WATCHDOG] WiFi desconectado");
-    wifiConnected = false;
-    networkStuck = true;
+  // Verifica memória
+  if (ESP.getFreeHeap() < 3000) {
+    Serial.println("[WATCHDOG] Memória baixa, limpando...");
+    limpezaProfundaMemoria();
   }
 }
 
@@ -356,45 +495,10 @@ void memoryWatchdogCallback() {
   uint32_t freeHeap = ESP.getFreeHeap();
   uint8_t fragmentation = ESP.getHeapFragmentation();
   
-  // Condições críticas de memória
   if (freeHeap < 3000 || fragmentation > MAX_HEAP_FRAGMENTATION) {
     Serial.printf("[WATCHDOG] Memória crítica: %u bytes, %u%% fragmentada\n", freeHeap, fragmentation);
     limpezaProfundaMemoria();
-    
-    // Se ainda crítico, força restart
-    if (ESP.getFreeHeap() < 2000) {
-      Serial.println("[EMERGENCY] Memória ainda crítica, reiniciando...");
-      emergencyRestart();
-    }
   }
-}
-
-void forceNetworkReset() {
-  Serial.println("[RESET] Forçando reset da rede...");
-  
-  // Para todos os serviços de rede
-  webSocket.disconnect();
-  server.stop();
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
-  
-  delay(1000);
-  
-  // Limpa tudo
-  limpezaProfundaMemoria();
-  
-  // Reinicia rede
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(config.staSSID, config.staPassword);
-  
-  // Reinicia serviços
-  server.begin();
-  webSocket.begin();
-  
-  networkStuck = false;
-  lastNetworkActivity = millis();
-  
-  Serial.println("[RESET] Reset de rede concluído");
 }
 
 void limpezaProfundaMemoria() {
@@ -419,26 +523,11 @@ void limpezaProfundaMemoria() {
   Serial.printf("[CLEANUP] Heap após limpeza: %u bytes\n", ESP.getFreeHeap());
 }
 
-void emergencyRestart() {
-  Serial.println("[EMERGENCY] Reinício de emergência em 3 segundos...");
-  atualizarDisplay("REINICIANDO...", 0);
-  delay(3000);
-  ESP.restart();
-}
-
-bool isNetworkHealthy() {
-  return (WiFi.status() == WL_CONNECTED && 
-          !networkStuck && 
-          ESP.getFreeHeap() > 3000 &&
-          ESP.getHeapFragmentation() < MAX_HEAP_FRAGMENTATION);
-}
-
 void verificarClientesWebSocket() {
   uint8_t clientCount = webSocket.connectedClients();
   unsigned long currentTime = millis();
   
   for (uint8_t i = 0; i < clientCount; i++) {
-    // Desconecta clientes inativos há muito tempo
     if (currentTime - lastClientActivity[i] > CLIENT_TIMEOUT) {
       Serial.printf("[WebSocket] Cliente %u inativo, desconectando\n", i);
       webSocket.disconnect(i);
@@ -447,7 +536,7 @@ void verificarClientesWebSocket() {
 }
 
 // =======================================================
-// FUNÇÕES BÁSICAS (OTIMIZADAS)
+// FUNÇÕES BÁSICAS (MANTIDAS)
 // =======================================================
 
 void atualizarDisplay(String status, float peso_em_gramas) {
@@ -458,31 +547,35 @@ void atualizarDisplay(String status, float peso_em_gramas) {
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.print("Status: ");
-  display.println(status.substring(0, 15)); // Limita tamanho
+  display.println(status.substring(0, 12));
 
   // Peso (linha 2-3)
   display.setTextSize(2);
   display.setCursor(0, 16);
-  display.print(peso_em_gramas / 1000.0, 3); // Reduzido para 2 decimais
+  display.print(peso_em_gramas / 1000.0, 3);
   display.println(" kg");
 
-  // Rede (linha 4)
+  // Status de conexão (linha 4)
   display.setTextSize(1);
   display.setCursor(0, 40);
-  if (WiFi.status() == WL_CONNECTED) {
-    display.print("IP: ");
-    String ip = WiFi.localIP().toString();
-    display.println(ip); 
+  display.print("AP: ");
+  display.print(WiFi.softAPIP());
+  
+  // Status WiFi (linha 5)
+  display.setCursor(0, 50);
+  if (wifiConnected) {
+    display.print("WiFi: ");
+    display.print(WiFi.localIP());
   } else {
-    display.println("WiFi: OFF");
+    display.print("WiFi: OFF");
   }
   
-  // Status sistema (linha 5)
-  display.setCursor(0, 50);
-  display.print("H:");
-  display.print(ESP.getFreeHeap() / 1024); // Em KB
-  display.print("k C:");
+  // Clientes conectados (linha 6)
+  display.setCursor(0, 56);
+  display.print("Clients: ");
   display.print(webSocket.connectedClients());
+  display.print("/");
+  display.print(WiFi.softAPgetStationNum());
 
   display.display();
 }
@@ -512,16 +605,16 @@ void loadConfig() {
 void broadcastStatus(const char *type, const String &message) {
   balancaStatus = message;
   
-  if (webSocket.connectedClients() > 0 && isNetworkHealthy()) {
+  if (webSocket.connectedClients() > 0) {
     StaticJsonDocument<256> doc;
     doc["type"] = "status";
     doc["status"] = type;
-    doc["message"] = message; // Mantém mensagem original sem limitação
+    doc["message"] = message;
     
     String output;
     serializeJson(doc, output);
     
-    if (output.length() < 240) { // Verifica tamanho mas mantém conteúdo
+    if (output.length() < 240) {
       webSocket.broadcastTXT(output);
       lastNetworkActivity = millis();
     }
@@ -530,11 +623,11 @@ void broadcastStatus(const char *type, const String &message) {
 
 bool aguardarEstabilidade(const String &proposito) {
   const unsigned long timeout_ms = config.timeoutCalibracao;
-   delay(12);
+  delay(12);
   unsigned long inicio = millis();
   int leiturasEstaveis = 0;
   long leituraAnterior = 0;
-  // Pequeno delay para estabilizar o sistema
+  
   if (!loadcell.is_ready()) {
     broadcastStatus("error", "Celula nao pronta");
     return false;
@@ -543,14 +636,13 @@ bool aguardarEstabilidade(const String &proposito) {
   leituraAnterior = loadcell.read_average(config.numAmostrasMedia);
 
   while (leiturasEstaveis < config.leiturasEstaveis) {
-    // Timeout mais rigoroso
     if (millis() - inicio > timeout_ms) {
       broadcastStatus("error", "Timeout estabilidade");
       balancaStatus = "Pronta";
       return false;
     }
 
-    // Processa sistema
+    // Continua processando serviços
     ESP.wdtFeed();
     webSocket.loop();
     server.handleClient();
@@ -571,7 +663,7 @@ bool aguardarEstabilidade(const String &proposito) {
       leituraAnterior = leituraAtual;
     }
 
-    delay(30); // Delay mínimo
+    delay(30);
   }
 
   broadcastStatus("success", "Estabilizado OK");
@@ -610,18 +702,10 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
       break;
       
     case WStype_CONNECTED: {
-      // Limite rigoroso de clientes
-      if (webSocket.connectedClients() > 1) {
-        Serial.printf("[WebSocket] Cliente %u rejeitado (limite)\n", client_num);
-        webSocket.sendTXT(client_num, "{\"type\":\"error\",\"message\":\"Limite de clientes\"}");
-        webSocket.disconnect(client_num);
-        return;
-      }
-
       IPAddress ip = webSocket.remoteIP(client_num);
       Serial.printf("[%u] Conectado: %s\n", client_num, ip.toString().c_str());
       
-      // Envia configuração com strings originais
+      // Envia configuração
       StaticJsonDocument<512> doc;
       doc["type"] = "config";
       doc["conversionFactor"] = config.conversionFactor;
@@ -643,7 +727,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
       break;
       
     case WStype_TEXT: {
-      if (length > 100) { // Limita tamanho de comando
+      if (length > 100) {
         Serial.println("Comando muito grande ignorado");
         return;
       }
@@ -663,7 +747,7 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
       }
       else if (msg.startsWith("c:")) {
         float massa_g = msg.substring(2).toFloat();
-        if (massa_g > 0 && massa_g < 100000) { // Validação
+        if (massa_g > 0 && massa_g < 100000) {
           if (aguardarEstabilidade("Calibrar")) {
             long leituraRaw = loadcell.read_average(config.numAmostrasMedia);
             long offset = loadcell.get_offset();
@@ -679,7 +763,6 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
         }
       }
       else if (msg.startsWith("set_param:")) {
-        // Comando para alterar parâmetros - mantendo compatibilidade
         int firstColon = msg.indexOf(':');
         int secondColon = msg.indexOf(':', firstColon + 1);
         if (firstColon != -1 && secondColon != -1) {
