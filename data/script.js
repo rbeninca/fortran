@@ -12,6 +12,13 @@ let connectionTimeout;
 let antiNoisingAtivo = false;
 let isSessionActive = false;
 
+let noiseBuffer = [];
+const NOISE_BUFFER_SIZE = 50;
+let currentStdDev = 0;
+let noiseMean = 0;
+let antiNoisingMultiplier = 2.0;
+let isStabilityMode = false;
+
 // --- NOVAS VARIÁVEIS PARA MELHORIAS (sem quebrar compatibilidade) ---
 let showDataLabels = false; // Começa desabilitado para não afetar performance
 let showPeaks = true;
@@ -35,6 +42,8 @@ window.onload = () => {
   
   // Adiciona controles melhorados se existir o container
   addEnhancedControls();
+   // NOVA LINHA: Adiciona controles de ruído
+  setTimeout(addNoiseControlsToUI, 500);
 };
 
 // --- INICIALIZAÇÃO MELHORADA (mas compatível) ---
@@ -916,19 +925,17 @@ function updateUIFromData(dado) {
   if (forca > maxForceInN) maxForceInN = forca;
   if (forca < minForceInN) minForceInN = forca;
 
+  // NOVO SISTEMA ANTI-NOISING
   let forcaFiltrada = forca;
+  
+  // Se está em modo de análise de estabilidade, coleta dados
+  if (isStabilityMode) {
+    calculateNoiseStatistics(forca);
+  }
+  
+  // Aplica o filtro anti-noising melhorado
   if (antiNoisingAtivo) {
-    const toleranciaBruta = parseFloat(document.getElementById("param-tolerancia").value);
-    const fatorConversao = parseFloat(document.getElementById("param-conversao").value);
-    const toleranciaN = (!isNaN(toleranciaBruta) && !isNaN(fatorConversao) && fatorConversao !== 0)
-      ? toleranciaBruta / fatorConversao
-      : 0;
-
-    if (Math.abs(forca) <= toleranciaN) {
-      forcaFiltrada = 0;
-    } else {
-      forcaFiltrada = forca - Math.sign(forca) * toleranciaN;
-    }
+    forcaFiltrada = applyAntiNoising(forca);
   }
   
   const displayForce = convertForce(forcaFiltrada, displayUnit);
@@ -936,22 +943,20 @@ function updateUIFromData(dado) {
   const emaDisplay = convertForce(ema, displayUnit);
   const minDisplayForce = convertForce(minForceInN, displayUnit);
 
-  // Atualiza painéis (lógica original mantida)
+  // Atualiza painéis (resto da função permanece igual)
   document.getElementById('forca-atual').textContent = `${formatForce(displayForce, displayUnit)} ${displayUnit}`;
   document.getElementById('forca-maxima').textContent = `${formatForce(maxDisplayForce, displayUnit)} ${displayUnit}`;
   document.getElementById('forca-minima').textContent = `mín: ${formatForce(minDisplayForce, displayUnit)} ${displayUnit}`;
   document.getElementById('forca-ems').textContent = `${formatForce(emaDisplay, displayUnit)} ${displayUnit}`;
 
-  // Atualiza gráfico (MELHORADO mas compatível)
+  // Atualiza gráfico (mantém lógica existente)
   if (chartMode !== 'pausado') {
     rawDataN.push(forca);
     
-    // Se está em zoom, gerencia dados especiais
     if (isZoomed && originalChartData) {
       originalChartData.labels.push(tempo.toFixed(1));
       originalChartData.series[0].push(parseFloat(formatForce(displayForce, displayUnit)));
       
-      // Mantém apenas últimos pontos no zoom
       const zoomPoints = Math.min(20, originalChartData.labels.length);
       chartData.labels = originalChartData.labels.slice(-zoomPoints);
       chartData.series[0] = originalChartData.series[0].slice(-zoomPoints);
@@ -961,7 +966,6 @@ function updateUIFromData(dado) {
         originalChartData.series[0].shift();
       }
     } else {
-      // Lógica original
       chartData.labels.push(tempo.toFixed(1));
       chartData.series[0].push(parseFloat(formatForce(displayForce, displayUnit)));
       
@@ -978,7 +982,7 @@ function updateUIFromData(dado) {
     chart.update(chartData);
   }
 
-  // Tabela (lógica original mantida completamente)
+  // Tabela (mantém lógica original)
   if (isSessionActive) {
     const tbody = document.getElementById("tabela").querySelector("tbody");
     const linha = tbody.insertRow(0);
@@ -1416,7 +1420,224 @@ function toggleAntiNoising() {
   antiNoisingAtivo = !antiNoisingAtivo;
   const btn = document.getElementById('btn-anti-noising');
   if (btn) {
-    btn.textContent = antiNoisingAtivo ? 'Anti-Noising: On (ΔT compensado)' : 'Anti-Noising: Off';
-    btn.classList.toggle('btn-aviso', antiNoisingAtivo);
+    if (antiNoisingAtivo) {
+      if (currentStdDev === 0) {
+        btn.textContent = 'Anti-Noising: ON (Calibre!)';
+        btn.classList.add('btn-aviso');
+        showNotification('warning', 'Anti-noising ativo, mas sem calibração. Vá em Parâmetros → Analisar Ruído');
+      } else {
+        btn.textContent = `Anti-Noising: ON (${antiNoisingMultiplier}σ)`;
+        btn.classList.remove('btn-aviso');
+        btn.classList.add('btn-sucesso');
+      }
+    } else {
+      btn.textContent = 'Anti-Noising: OFF';
+      btn.classList.remove('btn-aviso', 'btn-sucesso');
+    }
   }
+}
+
+
+// 4. ADICIONE ESTAS NOVAS FUNÇÕES ANTES DA ÚLTIMA LINHA DO ARQUIVO:
+
+function applyAntiNoising(forceValue) {
+  if (!antiNoisingAtivo || currentStdDev === 0) {
+    return forceValue;
+  }
+  
+  const threshold = currentStdDev * antiNoisingMultiplier;
+  
+  // Se está dentro da faixa de ruído, considera zero
+  if (Math.abs(forceValue - noiseMean) <= threshold) {
+    return 0;
+  }
+  
+  // Senão, subtrai a média do ruído
+  return forceValue - noiseMean;
+}
+
+function calculateNoiseStatistics(forceValue) {
+  noiseBuffer.push(forceValue);
+  
+  if (noiseBuffer.length > NOISE_BUFFER_SIZE) {
+    noiseBuffer.shift();
+  }
+  
+  if (noiseBuffer.length < 10) return;
+  
+  // Calcula média
+  noiseMean = noiseBuffer.reduce((sum, val) => sum + val, 0) / noiseBuffer.length;
+  
+  // Calcula variância
+  const variance = noiseBuffer.reduce((sum, val) => {
+    return sum + Math.pow(val - noiseMean, 2);
+  }, 0) / noiseBuffer.length;
+  
+  // Calcula desvio padrão
+  currentStdDev = Math.sqrt(variance);
+  
+  updateNoiseDisplay();
+}
+
+function updateNoiseDisplay() {
+  const meanElement = document.getElementById("noise-mean");
+  const stdDevElement = document.getElementById("noise-stddev");
+  const thresholdElement = document.getElementById("noise-threshold");
+  
+  if (meanElement) {
+    meanElement.textContent = `${(noiseMean * getDisplayUnitFactor(displayUnit)).toFixed(3)} ${displayUnit}`;
+  }
+  
+  if (stdDevElement) {
+    stdDevElement.textContent = `${(currentStdDev * getDisplayUnitFactor(displayUnit)).toFixed(3)} ${displayUnit}`;
+  }
+  
+  if (thresholdElement) {
+    const threshold = currentStdDev * antiNoisingMultiplier * getDisplayUnitFactor(displayUnit);
+    thresholdElement.textContent = `±${threshold.toFixed(3)} ${displayUnit}`;
+  }
+}
+
+function startNoiseAnalysis() {
+  if (isStabilityMode) {
+    showNotification('info', 'Análise já em andamento');
+    return;
+  }
+  
+  isStabilityMode = true;
+  noiseBuffer = [];
+  currentStdDev = 0;
+  noiseMean = 0;
+  
+  showNotification('info', 'Analisando ruído... Mantenha a balança VAZIA e ESTÁVEL por 10 segundos!', 3000);
+  
+  setTimeout(() => {
+    isStabilityMode = false;
+    if (currentStdDev > 0) {
+      showNotification('success', `✅ Ruído calibrado! Desvio: ±${(currentStdDev * getDisplayUnitFactor(displayUnit)).toFixed(3)} ${displayUnit}`);
+      
+      // Atualiza o botão anti-noising
+      if (antiNoisingAtivo) {
+        toggleAntiNoising();
+        toggleAntiNoising(); // Liga novamente para atualizar o texto
+      }
+    } else {
+      showNotification('error', 'Análise falhou. Certifique-se que a balança está estável.');
+    }
+  }, 10000);
+}
+
+function setAntiNoisingMultiplier(multiplier) {
+  antiNoisingMultiplier = Math.max(0.5, Math.min(5.0, parseFloat(multiplier)));
+  updateNoiseDisplay();
+  showNotification('info', `Sensibilidade: ${antiNoisingMultiplier}σ (${getSensitivityDescription()})`, 3000);
+}
+
+function getSensitivityDescription() {
+  if (antiNoisingMultiplier <= 1.0) return "Muito sensível";
+  if (antiNoisingMultiplier <= 2.0) return "Balanceado";
+  if (antiNoisingMultiplier <= 3.0) return "Moderado";
+  return "Pouco sensível";
+}
+
+function resetNoiseAnalysis() {
+  noiseBuffer = [];
+  currentStdDev = 0;
+  noiseMean = 0;
+  isStabilityMode = false;
+  updateNoiseDisplay();
+  showNotification('info', 'Análise de ruído resetada');
+}
+
+function addNoiseControlsToUI() {
+  const controlesTab = document.getElementById('abaControles');
+  if (!controlesTab || document.getElementById('noise-controls-section')) return;
+  
+  const noiseSection = document.createElement('section');
+  noiseSection.id = 'noise-controls-section';
+  noiseSection.style.cssText = `
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--cor-borda);
+  `;
+  
+  noiseSection.innerHTML = `
+    <h3 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem;">
+      🔇 Controle de Ruído Inteligente
+    </h3>
+    <p style="font-size: 0.875rem; color: var(--cor-texto-secundario); margin-bottom: 1rem;">
+      Sistema baseado em desvio padrão para eliminar ruído sem afetar medições válidas.
+    </p>
+    
+    <div class="grid-container" style="gap: 1rem; margin-bottom: 1rem;">
+      <div>
+        <label>Ruído Médio</label>
+        <div id="noise-mean" style="padding: 0.5rem; background: #f8f9fa; border-radius: 0.375rem; font-family: monospace;">
+          --- ${displayUnit}
+        </div>
+      </div>
+      <div>
+        <label>Desvio Padrão</label>
+        <div id="noise-stddev" style="padding: 0.5rem; background: #f8f9fa; border-radius: 0.375rem; font-family: monospace;">
+          --- ${displayUnit}
+        </div>
+      </div>
+      <div>
+        <label>Threshold</label>
+        <div id="noise-threshold" style="padding: 0.5rem; background: #f8f9fa; border-radius: 0.375rem; font-family: monospace;">
+          --- ${displayUnit}
+        </div>
+      </div>
+      <div>
+        <label for="noise-multiplier">Sensibilidade (σ)</label>
+        <input id="noise-multiplier" type="number" step="0.1" min="0.5" max="5.0" value="2.0" 
+               onchange="setAntiNoisingMultiplier(this.value)"
+               style="padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; width: 100%;">
+        <small style="color: var(--cor-texto-secundario); display: block; margin-top: 0.25rem;">
+          1.0=sensível, 2.0=balanceado, 3.0=tolerante
+        </small>
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button onclick="startNoiseAnalysis()" class="btn btn-primario">
+        📊 Analisar Ruído (10s)
+      </button>
+      <button onclick="resetNoiseAnalysis()" class="btn btn-secundario">
+        🔄 Reset
+      </button>
+    </div>
+    
+    <div style="margin-top: 1rem; padding: 0.75rem; background: #e8f4fd; border-radius: 0.375rem; border-left: 4px solid #3498db;">
+      <p style="margin: 0; font-size: 0.875rem;"><strong>💡 Como usar:</strong></p>
+      <p style="margin: 0.25rem 0 0 0; font-size: 0.75rem; color: #2c3e50;">
+        1. Deixe a balança VAZIA • 2. Clique "Analisar Ruído" • 3. Aguarde 10s sem tocar • 4. Ative Anti-Noising no gráfico
+      </p>
+    </div>
+  `;
+  
+  controlesTab.appendChild(noiseSection);
+}
+// 8. VALIDAÇÃO E TESTES:
+function testAntiNoising() {
+  console.log("=== TESTE DO SISTEMA ANTI-NOISING ===");
+  console.log("Ruído médio:", noiseMean, "N");
+  console.log("Desvio padrão:", currentStdDev, "N");
+  console.log("Threshold:", currentStdDev * antiNoisingMultiplier, "N");
+  console.log("Multiplicador:", antiNoisingMultiplier, "σ");
+  
+  function testAntiNoising() {
+  console.log("=== TESTE DO SISTEMA ANTI-NOISING ===");
+  console.log("Ruído médio:", noiseMean, "N");
+  console.log("Desvio padrão:", currentStdDev, "N");
+  console.log("Threshold:", currentStdDev * antiNoisingMultiplier, "N");
+  console.log("Multiplicador:", antiNoisingMultiplier, "σ");
+  
+  // Testa alguns valores
+  const testValues = [-0.001, 0, 0.001, 0.5, 1.0, 5.0];
+  testValues.forEach(val => {
+    const filtered = applyAntiNoising(val);
+    console.log(`Entrada: ${val}N → Saída: ${filtered}N`);
+  });
+} 
 }
