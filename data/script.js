@@ -36,7 +36,8 @@ window.onload = () => {
   
   setDisplayUnit('kgf');
   setChartMode('deslizante');
-  carregarGravacoes();
+  //carregarGravacoes();
+   carregarGravacoesComImpulso();
   conectarWorker();
   setInterval(updateReadingsPerSecond, 1000);
   
@@ -237,6 +238,11 @@ function addEnhancedControls() {
       text: isZoomed ? '🔍 Zoom: ON' : '🔍 Zoom: OFF',
       onclick: 'toggleZoom()',
       class: isZoomed ? 'enhanced-btn enhanced-btn-zoom' : 'enhanced-btn'
+    },
+    {
+     text: '🚀 Impulso',
+      onclick: 'mostrarImpulsoAtual()',
+    class: 'enhanced-btn enhanced-btn-info'
     },
     {
       text: '📊 Stats',
@@ -1323,19 +1329,34 @@ function salvarRede(event) {
     .catch(err => showNotification("error", "Falha ao salvar a rede: " + err));
 }
 
-function carregarGravacoes() {
+function carregarGravacoesComImpulso() {
   const container = document.getElementById('lista-gravacoes');
   if (!container) return;
   
   container.innerHTML = '';
   const gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
+  
   if (gravacoes.length === 0) {
     container.innerHTML = '<p>Nenhuma gravação encontrada.</p>';
     return;
   }
-  gravacoes.sort((a, b) => b.id - a.id); 
+  
+  gravacoes.sort((a, b) => b.id - a.id);
+  
   gravacoes.forEach(gravacao => {
     const dataFormatada = new Date(gravacao.timestamp).toLocaleString('pt-BR');
+    
+    // CALCULA IMPULSO PREVIEW
+    let impulsoPreview = '';
+    try {
+      const dadosRapidos = processarDadosSimples(gravacao.dadosTabela);
+      const impulso = dadosRapidos.impulso.impulsoTotal;
+      const classe = dadosRapidos.propulsao.classificacaoMotor.classe;
+      impulsoPreview = ` • ${impulso.toFixed(2)} N⋅s (${classe})`;
+    } catch (e) {
+      impulsoPreview = ' • Erro no cálculo';
+    }
+    
     const card = document.createElement('div');
     card.className = 'card-gravacao';
     card.style.cssText = `
@@ -1348,15 +1369,34 @@ function carregarGravacoes() {
       box-shadow: 0 2px 10px rgba(0,0,0,0.1);
       margin-bottom: 10px;
     `;
+    
     card.innerHTML = `
       <div>
-        <p style="font-weight: 600;">${gravacao.nome}</p> 
-        <p style="font-size: 0.875rem; color: #7f8c8d;">Salvo em: ${dataFormatada} (${gravacao.dadosTabela.length} leituras)</p>
+        <p style="font-weight: 600; margin-bottom: 5px;">${gravacao.nome}</p> 
+        <p style="font-size: 0.875rem; color: #7f8c8d;">
+          ${dataFormatada} • ${gravacao.dadosTabela.length} leituras${impulsoPreview}
+        </p>
       </div>
-      <div style="display: flex; gap: 10px;">
-        <button onclick="exportarCSV(${gravacao.id})" class="btn" style="background: #27ae60;">Exportar CSV</button>
-        <button onclick="deletarGravacao(${gravacao.id})" class="btn" style="background: #e74c3c;">Deletar</button>
-      </div>`;
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button onclick="exportarCSV(${gravacao.id})" 
+                style="background: #27ae60; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+          📄 CSV
+        </button>
+        <button onclick="exportarImagemSessao(${gravacao.id})" 
+                style="background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+          🚀 Análise
+        </button>
+        <button onclick="visualizarSessao(${gravacao.id})" 
+                style="background: #9b59b6; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+          👁️ Ver
+        </button>
+        <button onclick="deletarGravacao(${gravacao.id})" 
+                style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+          🗑️ Del
+        </button>
+      </div>
+    `;
+    
     container.appendChild(card);
   });
 }

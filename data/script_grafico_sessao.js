@@ -1,8 +1,124 @@
 // --- VERSÃO SIMPLES E ROBUSTA PARA EXPORTAÇÃO DE SESSÃO ---
 
+function calcularAreaSobCurva(tempos, forcas, onlyPositive = false) {
+  if (tempos.length !== forcas.length || tempos.length < 2) {
+    return {
+      areaTotal: 0,
+      areaPositiva: 0,
+      areaNegativa: 0,
+      impulsoTotal: 0,
+      impulsoPositivo: 0,
+      tempoIgnicao: 0,
+      tempoBurnout: 0,
+      forcaMaxima: 0,
+      forcaMedia: 0,
+      duracaoQueima: 0,
+      forcaMediaPositiva: 0
+    };
+  }
+
+  let areaTotal = 0;
+  let areaPositiva = 0;
+  let areaNegativa = 0;
+  let tempoIgnicao = null;
+  let tempoBurnout = null;
+  let forcaMaxima = Math.max(...forcas);
+  let forcaMedia = forcas.reduce((a, b) => a + b, 0) / forcas.length;
+  
+  // Detecta início e fim da queima (threshold de 5% da força máxima)
+  const thresholdIgnicao = Math.max(forcaMaxima * 0.05, 0.5); // Mínimo 0.5N
+  
+  for (let i = 0; i < tempos.length - 1; i++) {
+    const deltaT = tempos[i + 1] - tempos[i];
+    const forca1 = onlyPositive ? Math.max(0, forcas[i]) : forcas[i];
+    const forca2 = onlyPositive ? Math.max(0, forcas[i + 1]) : forcas[i + 1];
+    
+    // Área do trapézio: (base * (altura1 + altura2)) / 2
+    const areaTrapezio = deltaT * (forca1 + forca2) / 2;
+    
+    areaTotal += areaTrapezio;
+    
+    if (areaTrapezio > 0) {
+      areaPositiva += areaTrapezio;
+    } else {
+      areaNegativa += Math.abs(areaTrapezio);
+    }
+    
+    // Detecta ignição (primeira vez que passa do threshold)
+    if (tempoIgnicao === null && forcas[i] > thresholdIgnicao) {
+      tempoIgnicao = tempos[i];
+    }
+    
+    // Detecta burnout (última vez que estava acima do threshold)
+    if (forcas[i] > thresholdIgnicao) {
+      tempoBurnout = tempos[i];
+    }
+  }
+
+  return {
+    areaTotal: Math.abs(areaTotal),
+    areaPositiva: areaPositiva,
+    areaNegativa: areaNegativa,
+    impulsoTotal: Math.abs(areaTotal), // Em N⋅s
+    impulsoPositivo: areaPositiva,
+    tempoIgnicao: tempoIgnicao || 0,
+    tempoBurnout: tempoBurnout || 0,
+    duracaoQueima: (tempoBurnout || 0) - (tempoIgnicao || 0),
+    forcaMaxima: forcaMaxima,
+    forcaMedia: forcaMedia,
+    forcaMediaPositiva: forcas.filter(f => f > 0).reduce((a, b) => a + b, 0) / Math.max(1, forcas.filter(f => f > 0).length)
+  };
+}
+
+function calcularMetricasPropulsao(impulsoData, massaPropelente = null) {
+  const { impulsoTotal, duracaoQueima, forcaMaxima, forcaMedia } = impulsoData;
+  
+  const metricas = {
+    classificacaoMotor: classificarMotor(impulsoTotal),
+    impulsoEspecifico: massaPropelente ? impulsoTotal / (massaPropelente * 9.81) : null,
+    razaoImpulsoMedio: duracaoQueima > 0 ? impulsoTotal / duracaoQueima : 0,
+    eficienciaQueima: forcaMaxima > 0 ? (forcaMedia / forcaMaxima) * 100 : 0
+  };
+  
+  return metricas;
+}
+
+function classificarMotor(impulsoNs) {
+  const classificacoes = [
+    { max: 0.625, classe: '1/8A', cor: '#8e44ad' },
+    { max: 1.25, classe: '1/4A', cor: '#9b59b6' },
+    { max: 2.5, classe: '1/2A', cor: '#e74c3c' },
+    { max: 5.0, classe: 'A', cor: '#e67e22' },
+    { max: 10.0, classe: 'B', cor: '#f39c12' },
+    { max: 20.0, classe: 'C', cor: '#f1c40f' },
+    { max: 40.0, classe: 'D', cor: '#2ecc71' },
+    { max: 80.0, classe: 'E', cor: '#1abc9c' },
+    { max: 160.0, classe: 'F', cor: '#3498db' },
+    { max: 320.0, classe: 'G', cor: '#9b59b6' },
+    { max: 640.0, classe: 'H', cor: '#e74c3c' },
+    { max: 1280.0, classe: 'I', cor: '#e67e22' },
+    { max: 2560.0, classe: 'J', cor: '#f39c12' },
+    { max: 5120.0, classe: 'K', cor: '#2ecc71' },
+    { max: 10240.0, classe: 'L', cor: '#3498db' },
+    { max: 20480.0, classe: 'M', cor: '#9b59b6' },
+    { max: 40960.0, classe: 'N', cor: '#e74c3c' },
+    { max: Infinity, classe: 'O+', cor: '#c0392b' }
+  ];
+  
+  for (const { max, classe, cor } of classificacoes) {
+    if (impulsoNs <= max) {
+      return { classe, cor, faixa: `≤ ${max} N⋅s` };
+    }
+  }
+  
+  return { classe: 'Indefinido', cor: '#95a5a6', faixa: 'N/A' };
+}
+
+
+
+
 function exportarImagemSessao(sessionId) {
   try {
-    // Busca a sessão
     const gravacoes = JSON.parse(localStorage.getItem('balancaGravacoes')) || [];
     const sessao = gravacoes.find(g => g.id === sessionId);
     
@@ -11,13 +127,13 @@ function exportarImagemSessao(sessionId) {
       return;
     }
     
-    showNotification('info', `Gerando relatório de "${sessao.nome}"...`, 2000);
+    showNotification('info', `Gerando análise de propulsão de "${sessao.nome}"...`, 2000);
     
-    // Processa dados
+    // Processa dados COM cálculos de impulso
     const dados = processarDadosSimples(sessao.dadosTabela);
     
-    // Gera imagem
-    criarRelatorioSimples(sessao, dados);
+    // Gera relatório com análise de impulso
+    criarRelatorioComImpulso(sessao, dados);
     
   } catch (e) {
     console.error('Erro:', e);
@@ -54,6 +170,12 @@ function processarDadosSimples(dadosTabela) {
     
     return { media, max, min, mediana, desvio, cv, amplitude: max - min };
   };
+
+
+ 
+  // NOVO: Cálculo da área sob a curva (IMPULSO)
+  const impulsoData = calcularAreaSobCurva(tempos, newtons, false);
+  const metricasPropulsao = calcularMetricasPropulsao(impulsoData);
   
   return {
     tempos,
@@ -61,10 +183,417 @@ function processarDadosSimples(dadosTabela) {
     kgf,
     stats: calcStats(kgf),
     duracao: tempos.length > 0 ? Math.max(...tempos) - Math.min(...tempos) : 0,
-    pontos: tempos.length
+    pontos: tempos.length,
+    // NOVOS DADOS DE IMPULSO:
+    impulso: impulsoData,
+    propulsao: metricasPropulsao
   };
 }
+function criarRelatorioComImpulso(sessao, dados) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Dimensões maiores para acomodar informações de impulso
+  const w = 1600;
+  const h = 1200;
+  canvas.width = w;
+  canvas.height = h;
+  
+  // Cores
+  const cor = {
+    fundo: '#ffffff',
+    titulo: '#2c3e50',
+    subtitulo: '#7f8c8d',
+    azul: '#3498db',
+    verde: '#27ae60',
+    vermelho: '#e74c3c',
+    cinza: '#95a5a6',
+    fundo2: '#f8f9fa',
+    laranja: '#e67e22'
+  };
+  
+  // 1. FUNDO
+  ctx.fillStyle = cor.fundo;
+  ctx.fillRect(0, 0, w, h);
+  
+  // 2. CABEÇALHO COM IMPULSO
+  ctx.fillStyle = cor.titulo;
+  ctx.font = 'bold 36px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('🚀 ANÁLISE DE PROPULSÃO', w/2, 50);
+  
+  ctx.fillStyle = cor.azul;
+  ctx.font = 'bold 24px Arial';
+  ctx.fillText(`"${sessao.nome}"`, w/2, 90);
+  
+  const dataSessao = new Date(sessao.timestamp).toLocaleString('pt-BR');
+  ctx.fillStyle = cor.subtitulo;
+  ctx.font = '16px Arial';
+  ctx.fillText(`Teste realizado em: ${dataSessao}`, w/2, 120);
+  
+  // DESTAQUE DO IMPULSO
+  ctx.fillStyle = cor.verde;
+  ctx.font = 'bold 20px Arial';
+  const impulsoTotal = dados.impulso.impulsoTotal;
+  const classificacao = dados.propulsao.classificacaoMotor;
+  ctx.fillText(`💥 Impulso Total: ${impulsoTotal.toFixed(2)} N⋅s | Motor Classe ${classificacao.classe}`, w/2, 155);
+  
+  // Linha
+  ctx.strokeStyle = cor.cinza;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(w*0.1, 180);
+  ctx.lineTo(w*0.9, 180);
+  ctx.stroke();
+  
+  // 3. GRÁFICO COM ÁREA PREENCHIDA
+  if (dados.kgf.length > 0) {
+    desenharGraficoComArea(ctx, dados, cor, w, h);
+  }
+  
+  // 4. ESTATÍSTICAS + IMPULSO
+  if (dados.stats) {
+    desenharEstatisticasCompletas(ctx, dados, cor, w, h);
+  }
+  
+  // 5. TABELA DE MÉTRICAS
+  desenharTabelaImpulso(ctx, dados, cor, w, h);
+  
+  // 6. RODAPÉ
+  ctx.fillStyle = cor.subtitulo;
+  ctx.font = '12px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('Sistema de Análise de Propulsão - GFIG', 50, h-20);
+  ctx.textAlign = 'right';
+  ctx.fillText(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, w-50, h-20);
+  
+  // 7. DOWNLOAD
+  baixarRelatorio(canvas, sessao.nome + '_analise_propulsao');
+}
 
+
+function desenharGraficoComArea(ctx, dados, cor, w, h) {
+  // Área do gráfico
+  const gx = 100;
+  const gy = 220;
+  const gw = w - 200;
+  const gh = 400;
+  
+  // Título do gráfico
+  ctx.fillStyle = cor.titulo;
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('📈 CURVA DE FORÇA vs TEMPO (Área Sombreada = Impulso Total)', gx + gw/2, gy - 20);
+  
+  // Fundo
+  ctx.fillStyle = cor.fundo2;
+  ctx.fillRect(gx, gy, gw, gh);
+  
+  // Borda
+  ctx.strokeStyle = cor.cinza;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(gx, gy, gw, gh);
+  
+  const valores = dados.newtons; // Usa Newtons diretamente
+  const tempos = dados.tempos;
+  
+  if (valores.length === 0) return;
+  
+  // Limites
+  const maxVal = Math.max(...valores);
+  const minVal = Math.min(...valores, 0);
+  const range = maxVal - minVal || 0.001;
+  const padding = range * 0.1;
+  
+  const yMin = minVal - padding;
+  const yMax = maxVal + padding;
+  const yRange = yMax - yMin;
+  
+  // Grid horizontal
+  ctx.strokeStyle = '#ecf0f1';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  
+  for (let i = 0; i <= 6; i++) {
+    const y = gy + (gh/6) * i;
+    const valor = yMax - (yRange/6) * i;
+    
+    ctx.beginPath();
+    ctx.moveTo(gx, y);
+    ctx.lineTo(gx + gw, y);
+    ctx.stroke();
+    
+    // Label
+    ctx.fillStyle = cor.cinza;
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText(valor.toFixed(1) + 'N', gx - 10, y + 4);
+  }
+  
+  ctx.setLineDash([]);
+  
+  // PREENCHIMENTO DA ÁREA (IMPULSO) - APENAS VALORES POSITIVOS
+  if (valores.length > 1) {
+    ctx.fillStyle = 'rgba(52, 152, 219, 0.3)'; // Azul transparente
+    ctx.beginPath();
+    
+    // Encontra a linha do zero
+    const zeroY = gy + gh - ((0 - yMin) / yRange) * gh;
+    
+    // Começa na linha do zero
+    ctx.moveTo(gx, zeroY);
+    
+    // Segue a curva apenas para valores positivos
+    for (let i = 0; i < valores.length; i++) {
+      const x = gx + (gw / (valores.length - 1)) * i;
+      const valorPositivo = Math.max(0, valores[i]); // Só valores positivos
+      const y = gy + gh - ((valorPositivo - yMin) / yRange) * gh;
+      ctx.lineTo(x, y);
+    }
+    
+    // Volta para o zero no final
+    ctx.lineTo(gx + gw, zeroY);
+    ctx.closePath();
+    ctx.fill();
+  }
+  
+  // Linha dos dados
+  if (valores.length > 1) {
+    ctx.strokeStyle = cor.azul;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    
+    for (let i = 0; i < valores.length; i++) {
+      const x = gx + (gw / (valores.length - 1)) * i;
+      const y = gy + gh - ((valores[i] - yMin) / yRange) * gh;
+      
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+  }
+  
+  // Linha do zero
+  if (yMin < 0 && yMax > 0) {
+    const zeroY = gy + gh - ((0 - yMin) / yRange) * gh;
+    ctx.strokeStyle = cor.cinza;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath();
+    ctx.moveTo(gx, zeroY);
+    ctx.lineTo(gx + gw, zeroY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  
+  // Ponto de força máxima
+  ctx.fillStyle = cor.vermelho;
+  const maxIndex = valores.indexOf(Math.max(...valores));
+  if (maxIndex >= 0) {
+    const x = gx + (gw / (valores.length - 1)) * maxIndex;
+    const y = gy + gh - ((valores[maxIndex] - yMin) / yRange) * gh;
+    
+    ctx.beginPath();
+    ctx.arc(x, y, 6, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // Label
+    ctx.fillStyle = cor.vermelho;
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Fmax: ${valores[maxIndex].toFixed(1)}N`, x, y - 20);
+  }
+  
+  // Labels dos eixos
+  ctx.fillStyle = cor.titulo;
+  ctx.font = 'bold 16px Arial';
+  ctx.textAlign = 'center';
+  
+  // Eixo Y
+  ctx.save();
+  ctx.translate(40, gy + gh/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('Força (N)', 0, 0);
+  ctx.restore();
+  
+  // Eixo X
+  ctx.fillText('Tempo (s)', gx + gw/2, gy + gh + 50);
+  
+  // Legenda
+  const legX = gx + gw - 180;
+  const legY = gy + 30;
+  
+  ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
+  ctx.fillRect(legX, legY, 25, 20);
+  ctx.strokeStyle = cor.azul;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(legX, legY, 25, 20);
+  
+  ctx.fillStyle = cor.titulo;
+  ctx.font = 'bold 14px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('Área = Impulso', legX + 35, legY + 15);
+  
+  // Valor do impulso na legenda
+  ctx.font = '12px Arial';
+  ctx.fillStyle = cor.verde;
+  ctx.fillText(`${dados.impulso.impulsoTotal.toFixed(2)} N⋅s`, legX + 35, legY + 30);
+}
+
+function desenharEstatisticasCompletas(ctx, dados, cor, w, h) {
+  const sy = 650;
+  
+  // Título
+  ctx.fillStyle = cor.titulo;
+  ctx.font = 'bold 20px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('📊 ANÁLISE ESTATÍSTICA COMPLETA', 100, sy);
+  
+  // Caixa principal
+  const bx = 100;
+  const by = sy + 30;
+  const bw = w - 200;
+  const bh = 200;
+  
+  ctx.fillStyle = cor.fundo2;
+  ctx.fillRect(bx, by, bw, bh);
+  
+  ctx.strokeStyle = cor.azul;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, bw, bh);
+  
+  // Coluna 1: Estatísticas básicas
+  ctx.fillStyle = cor.titulo;
+  ctx.font = 'bold 16px Arial';
+  ctx.fillText('📈 ESTATÍSTICAS BÁSICAS', bx + 20, by + 30);
+  
+  ctx.font = '13px Arial';
+  const stats = dados.stats;
+  const estatisticasBasicas = [
+    `Média: ${(stats.media * 9.81).toFixed(2)} N`,
+    `Máximo: ${(stats.max * 9.81).toFixed(2)} N`,
+    `Mínimo: ${(stats.min * 9.81).toFixed(2)} N`,
+    `Desvio: ${(stats.desvio * 9.81).toFixed(3)} N`,
+    `CV: ${stats.cv.toFixed(1)}%`
+  ];
+  
+  estatisticasBasicas.forEach((texto, i) => {
+    ctx.fillText(texto, bx + 20, by + 55 + i * 20);
+  });
+  
+  // Coluna 2: Dados de impulso
+  ctx.font = 'bold 16px Arial';
+  ctx.fillStyle = cor.verde;
+  ctx.fillText('🚀 ANÁLISE DE IMPULSO', bx + bw/2 + 20, by + 30);
+  
+  ctx.font = '13px Arial';
+  ctx.fillStyle = cor.titulo;
+  
+  const impulso = dados.impulso;
+  const dadosImpulso = [
+    `Impulso Total: ${impulso.impulsoTotal.toFixed(3)} N⋅s`,
+    `Impulso Positivo: ${impulso.impulsoPositivo.toFixed(3)} N⋅s`,
+    `Duração Queima: ${impulso.duracaoQueima.toFixed(2)} s`,
+    `Tempo Ignição: ${impulso.tempoIgnicao.toFixed(2)} s`,
+    `Tempo Burnout: ${impulso.tempoBurnout.toFixed(2)} s`
+  ];
+  
+  dadosImpulso.forEach((texto, i) => {
+    ctx.fillText(texto, bx + bw/2 + 20, by + 55 + i * 20);
+  });
+  
+  // Caixa de classificação do motor
+  const classY = by + 160;
+  const classificacao = dados.propulsao.classificacaoMotor;
+  
+  ctx.fillStyle = classificacao.cor;
+  ctx.fillRect(bx + 20, classY, 40, 30);
+  
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(classificacao.classe, bx + 40, classY + 22);
+  
+  ctx.fillStyle = cor.titulo;
+  ctx.font = 'bold 14px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Motor Classe ${classificacao.classe}`, bx + 70, classY + 15);
+  ctx.font = '12px Arial';
+  ctx.fillText(classificacao.faixa, bx + 70, classY + 28);
+}
+
+function desenharTabelaImpulso(ctx, dados, cor, w, h) {
+  const ty = 880;
+  
+  ctx.fillStyle = cor.titulo;
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('📋 MÉTRICAS DE PROPULSÃO DETALHADAS', 100, ty);
+  
+  // Tabela
+  const tx = 100;
+  const tby = ty + 30;
+  const tw = w - 200;
+  const th = 180;
+  
+  // Fundo
+  ctx.fillStyle = cor.fundo2;
+  ctx.fillRect(tx, tby, tw, th);
+  
+  // Borda
+  ctx.strokeStyle = cor.azul;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(tx, tby, tw, th);
+  
+  // Cabeçalhos
+  ctx.fillStyle = cor.azul;
+  ctx.font = 'bold 14px Arial';
+  ctx.fillText('PARÂMETRO', tx + 20, tby + 25);
+  ctx.fillText('VALOR', tx + 250, tby + 25);
+  ctx.fillText('PARÂMETRO', tx + 450, tby + 25);
+  ctx.fillText('VALOR', tx + 680, tby + 25);
+  
+  // Linha separadora
+  ctx.strokeStyle = cor.cinza;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(tx + 20, tby + 35);
+  ctx.lineTo(tx + tw - 20, tby + 35);
+  ctx.stroke();
+  
+  ctx.font = '13px Arial';
+  ctx.fillStyle = cor.titulo;
+  
+  const impulso = dados.impulso;
+  const propulsao = dados.propulsao;
+  
+  const metricas = [
+    ['Impulso Total:', `${impulso.impulsoTotal.toFixed(3)} N⋅s`, 'Força Máxima:', `${impulso.forcaMaxima.toFixed(2)} N`],
+    ['Impulso Positivo:', `${impulso.impulsoPositivo.toFixed(3)} N⋅s`, 'Força Média:', `${impulso.forcaMedia.toFixed(2)} N`],
+    ['Impulso Negativo:', `${impulso.areaNegativa.toFixed(3)} N⋅s`, 'Força Média (>0):', `${impulso.forcaMediaPositiva.toFixed(2)} N`],
+    ['Duração Total:', `${dados.duracao.toFixed(2)} s`, 'Duração Queima:', `${impulso.duracaoQueima.toFixed(2)} s`],
+    ['Tempo Ignição:', `${impulso.tempoIgnicao.toFixed(2)} s`, 'Tempo Burnout:', `${impulso.tempoBurnout.toFixed(2)} s`],
+    ['Classificação NAR:', propulsao.classificacaoMotor.classe, 'Eficiência Queima:', `${propulsao.eficienciaQueima.toFixed(1)}%`]
+  ];
+  
+  metricas.forEach((linha, i) => {
+    const y = tby + 55 + i * 20;
+    ctx.fillStyle = cor.titulo;
+    ctx.fillText(linha[0], tx + 20, y);
+    ctx.fillStyle = cor.azul;
+    ctx.fillText(linha[1], tx + 250, y);
+    ctx.fillStyle = cor.titulo;
+    ctx.fillText(linha[2], tx + 450, y);
+    ctx.fillStyle = cor.verde;
+    ctx.fillText(linha[3], tx + 680, y);
+  });
+}
+
+
+//ver se remover
 function criarRelatorioSimples(sessao, dados) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -504,5 +1033,58 @@ function visualizarSessao(sessionId) {
   } catch (e) {
     console.error('Erro ao visualizar:', e);
     showNotification('error', 'Erro ao carregar sessão');
+  }
+}
+
+function mostrarImpulsoAtual() {
+  if (chartData.series[0].length < 2) {
+    showNotification('info', 'Dados insuficientes para calcular impulso');
+    return;
+  }
+  
+  // Converte dados atuais para cálculo
+  const tempos = chartData.labels.map(label => parseFloat(label));
+  const forcas = rawDataN; // Já está em Newtons
+  
+  const impulsoData = calcularAreaSobCurva(tempos, forcas, false);
+  const metricasPropulsao = calcularMetricasPropulsao(impulsoData);
+  
+  const infoImpulso = `
+🚀 IMPULSO EM TEMPO REAL:
+
+📊 Impulso Atual: ${impulsoData.impulsoTotal.toFixed(3)} N⋅s
+⚡ Força Máxima: ${impulsoData.forcaMaxima.toFixed(2)} N
+📈 Força Média: ${impulsoData.forcaMedia.toFixed(2)} N
+⏱️ Duração: ${impulsoData.duracaoQueima.toFixed(1)} s
+🏷️ Classificação: Motor ${metricasPropulsao.classificacaoMotor.classe}
+  `;
+  
+  showNotification('info', infoImpulso, 8000);
+}
+
+
+function testarCalculoImpulso() {
+  // Dados de exemplo de um motor C6-3
+  const temposExemplo = [0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0];
+  const forcasExemplo = [0, 5, 12, 15, 14, 12, 8, 5, 2, 1, 0]; // Newtons
+  
+  const resultado = calcularAreaSobCurva(temposExemplo, forcasExemplo, false);
+  const classificacao = calcularMetricasPropulsao(resultado);
+  
+  console.log("=== TESTE DO CÁLCULO DE IMPULSO ===");
+  console.log("Impulso Total:", resultado.impulsoTotal.toFixed(3), "N⋅s");
+  console.log("Força Máxima:", resultado.forcaMaxima.toFixed(1), "N");
+  console.log("Duração:", resultado.duracaoQueima.toFixed(1), "s");
+  console.log("Classificação:", classificacao.classificacaoMotor.classe);
+  
+  // Para um motor C típico, esperamos:
+  // - Impulso entre 10-20 N⋅s
+  // - Classificação "C"
+  // - Duração ~1-2 segundos
+  
+  if (resultado.impulsoTotal >= 10 && resultado.impulsoTotal <= 20) {
+    console.log("✅ Teste passou - Impulso na faixa esperada");
+  } else {
+    console.log("❌ Teste falhou - Impulso fora da faixa");
   }
 }
