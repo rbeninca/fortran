@@ -27,7 +27,7 @@ function connectWebSocket() {
     if (port==5500){
         var url="192.168.1.2"
     }else{
-        var url=localhost.hostname;
+        var url=location.hostname;
     }
     //const wsURL = `ws://192.168.1.2:81`;
     const wsURL = `ws://`+url+`:81`;
