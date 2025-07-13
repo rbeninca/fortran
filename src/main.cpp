@@ -29,8 +29,8 @@ char jsonOutputBuffer[1250];
 // --- ESTRUTURA DE CONFIGURAÇÃO ---
 struct Config {
   unsigned long magic_number = 123456789;
-  char staSSID[32] = "BenincaGaspar";
-  char staPassword[32] = "aabbccddee";
+  char staSSID[32] = "BENINCAMGA";
+  char staPassword[32] = "8080808080";
   float conversionFactor = 21000.0;
   float gravity = 9.80665;
   int leiturasEstaveis = 10;
@@ -682,6 +682,11 @@ void handleFileRequest() {
   if (path.endsWith(".html")) contentType = "text/html";
   else if (path.endsWith(".css")) contentType = "text/css";
   else if (path.endsWith(".js")) contentType = "application/javascript";
+  else if (path.endsWith(".ico")) contentType = "image/x-icon";
+  else if (path.endsWith(".jpg")) contentType = "image/jpeg";
+  else if (path.endsWith(".png")) contentType = "image/png";
+  else if (path.endsWith(".json")) contentType = "application/json";
+  else if (path.endsWith(".txt")) contentType = "text/plain";
 
   if (SPIFFS.exists(path)) {
     File file = SPIFFS.open(path, "r");
@@ -690,9 +695,29 @@ void handleFileRequest() {
     if (sent > 0) {
       lastNetworkActivity = millis();
     }
+     WiFiClient client = server.client();
+    server.setContentLength(file.size());
+    server.send(200, contentType, "");  // Cabeçalho HTTP sem corpo
+
+    const size_t bufferSize = 512;
+    uint8_t buffer[bufferSize];
+    while (file.available()) {
+      size_t len = file.readBytes((char*)buffer, bufferSize);
+      client.write(buffer, len);
+      delay(1); // Pequena pausa evita travamentos no modo AP
+    }
+
+    file.close();
+    lastNetworkActivity = millis();
+    Serial.printf("[Web] Arquivo %s enviado com sucesso\n", path.c_str());
   } else {
     server.send(404, "text/plain", "404: Not Found");
+    Serial.printf("[Web] Arquivo não encontrado: %s\n", path.c_str());
   }
+  
+
+
+
 }
 void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_t length) {
   lastClientActivity[client_num] = millis();
