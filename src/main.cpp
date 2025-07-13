@@ -206,7 +206,7 @@ void loop() {
       balancaStatus = "Pesando";
       pesoAtual_g = loadcell.get_units(config.numAmostrasMedia);
       if (config.conversionFactor < 0) {
-        pesoAtual_g *= -1;
+        pesoAtual_g *= 1;
       }
 
       // Adiciona ao buffer SEMPRE que há clientes conectados
