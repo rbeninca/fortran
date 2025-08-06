@@ -247,6 +247,7 @@
       border-radius: .375rem;
       width: 100%
     }
+   
     
     input:disabled {
         background-color: #f3f4f6;
@@ -580,9 +581,24 @@
   <div id="abaConfig" class="tabcontent">
     <section>
       <h2 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">Configuração da Rede Wi-Fi</h2>
+      <p style="font-size: 0.875rem; color: var(--cor-texto-secundario); margin-bottom: 1rem;">Configure a rede Wi-Fi
+        para conectar a balança.</p>
+      <div id="status-rede" style="margin-bottom: 1rem; padding: 0.5rem; border: 1px solid var(--cor-borda); border-radius: 0.375rem; background-color: #f9fafb;">
+        <p style="margin: 0; font-weight: 600;">Status da Rede:</p>
+        <p id="status-rede-texto" style="margin: 0; font-size: 0.875rem; color: var(--cor-texto-secundario);">
+          Conectando...</p>
+        <p id="status-rede-ip" style="margin: 0; font-size: 0.875rem; color: var(--cor-texto-secundario);">
+          IP: <span id="ip-rede">---</span></p>
+        <p id="status-rede-ap" style="margin: 0; font-size: 0.875rem; color: var(--cor-texto-secundario);">
+          AP Ativo: <span id="ap-ativo">---</span></p>
+        <p id="status-rede-ap-ip" style="margin: 0; font-size: 0.875rem; color: var(--cor-texto-secundario);">
+          IP do AP: <span id="ap-ip">---</span></p>
+      </div>
+      <p style="font-size: 0.875rem; color: var(--cor-texto-secundario); margin-bottom: 1rem;">Digite o SSID e a senha
+        da rede Wi-Fi que deseja conectar.</p>
       <form onsubmit="salvarRede(event)" style="display: flex; flex-direction: column; gap: 1rem;">
         <div><label for="ssid">Nome da Rede (SSID)</label><input id="ssid" required style="max-width: 320px;"></div>
-        <div><label for="senha">Senha</label><input id="senha" type="password" style="max-width: 320px;"></div>
+        <div><label for="senha">Senha</label><input id="senha" type="text" style="max-width: 320px;"></div>
         <button type="submit" class="btn"
           style="background-color: #8b5cf6; color: white; align-self: flex-start;">Salvar Rede e Reiniciar</button>
       </form>

@@ -25,7 +25,7 @@ function connectWebSocket() {
     // O endereço IP deve ser o do seu ESP8266.
     const port =location.port;
     if (port==5500){
-        var url="192.168.1.6"
+        var url="localhost";
     }else{
         var url=location.hostname;
     }

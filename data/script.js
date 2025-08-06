@@ -1154,8 +1154,12 @@ function salvarDadosDaSessao(nome, tabela) {
 
 function updateConfigForm(config) {
   const getValue = (val) => (val !== null && val !== undefined) ? val : '';
+   // Formulário de configuração de rede
   document.getElementById("ssid").value = getValue(config.ssid);
-  document.getElementById("senha").value = getValue(config.password);
+  document.getElementById("senha").value = getValue(config.senha);
+
+
+  // Parâmetros da balança
   document.getElementById("param-conversao").value = getValue(config.conversionFactor);
   document.getElementById("param-gravidade").value = getValue(config.gravity);
   document.getElementById("param-offset").value = getValue(config.tareOffset);
@@ -1164,6 +1168,23 @@ function updateConfigForm(config) {
   atualizarToleranciaEmGramas();
   document.getElementById("param-num-amostras").value = getValue(config.numAmostrasMedia);
   document.getElementById("param-timeout").value = getValue(config.timeoutCalibracao);
+
+  // --- Atualiza Status da Rede ---
+  // Tradução do status numérico para texto
+  const wifiStatusMap = {
+    0: "Desconectado",
+    1: "Conectando...",
+    3: "Conectado",
+    4: "Falha na Conexão"
+  };
+
+  document.getElementById("status-rede-texto").textContent =
+    wifiStatusMap[config.wifi_status] || ("Código: " + getValue(config.wifi_status));
+
+  document.getElementById("ip-rede").textContent = getValue(config.wifi_ip);
+  document.getElementById("ap-ativo").textContent = config.ap_active ? "Sim" : "Não";
+  document.getElementById("ap-ip").textContent = getValue(config.ap_ip);
+
 }
 
 function updateConnectionStatus(isConnected) {
