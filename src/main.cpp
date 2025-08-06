@@ -24,7 +24,7 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 const int NUM_READINGS_IN_BUFFER = 20;
 StaticJsonDocument<JSON_ARRAY_SIZE(NUM_READINGS_IN_BUFFER) + NUM_READINGS_IN_BUFFER * (JSON_OBJECT_SIZE(4)+10)> bufferDoc;
 unsigned long lastBroadcastTime = 0;
-char jsonOutputBuffer[1250];
+char jsonOutputBuffer[2500];
 
 // --- ESTRUTURA DE CONFIGURAÇÃO ---
 struct Config {
@@ -194,7 +194,7 @@ void loop() {
   yield();
 
   // === COLETOR DE DADOS - SEMPRE ATIVO ===
-  if (millis() - lastReadTime >= 25) {
+  if (millis() - lastReadTime >= 12) {
     lastReadTime = millis();
 
     // Pula leituras apenas durante processos especiais
