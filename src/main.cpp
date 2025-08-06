@@ -29,8 +29,8 @@ char jsonOutputBuffer[1250];
 // --- ESTRUTURA DE CONFIGURAÇÃO ---
 struct Config {
   unsigned long magic_number = 123456789;
-  char staSSID[32] = "BENINCAMGA";
-  char staPassword[32] = "8080808080";
+  char staSSID[32] = "BenincaGaspar";
+  char staPassword[32] = "aabbccddee";
   float conversionFactor = 21000.0;
   float gravity = 9.80665;
   int leiturasEstaveis = 10;
@@ -341,6 +341,7 @@ void initializeServices() {
     doc["system_operational"] = systemOperational;
     doc["connection_status"] = getConnectionStatus();
     
+    
     String output;
     serializeJson(doc, output);
     server.send(200, "application/json", output);
@@ -543,42 +544,49 @@ void atualizarDisplay(String status, float peso_em_gramas) {
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
 
-  // Status (linha 1)
-  display.setTextSize(1);
-  display.setCursor(0, 0);
-  display.print("Status: ");
-  display.println(status.substring(0, 12));
+ // Peso logo na primeira linha
+display.setTextSize(2);
+display.setCursor(0, 0);  // agora começa no topo do display
+display.print(peso_em_gramas / 1000.0, 3);
+display.println(" kg");
 
-  // Peso (linha 2-3)
-  display.setTextSize(2);
-  display.setCursor(0, 16);
-  display.print(peso_em_gramas / 1000.0, 3);
-  display.println(" kg");
+display.setTextSize(1);
 
-  // Status de conexão (linha 4)
-  display.setTextSize(1);
-  display.setCursor(0, 40);
-  display.print("AP: ");
-  display.print(WiFi.softAPIP());
-  
-  // Status WiFi (linha 5)
-  display.setCursor(0, 50);
-  if (wifiConnected) {
-    display.print("WiFi: ");
-    display.print(WiFi.localIP());
-  } else {
-    display.print("WiFi: OFF");
-  }
-  
-  // Clientes conectados (linha 6)
-  display.setCursor(0, 56);
-  display.print("Clients: ");
-  display.print(webSocket.connectedClients());
-  display.print("/");
-  display.print(WiFi.softAPgetStationNum());
+// Linha 2 (logo abaixo do peso) - AP IP
+display.setCursor(0, 20);  // ajusta de acordo com altura do texto do peso
+display.print("AP: ");
+display.print(WiFi.softAPIP());
 
-  display.display();
+// Linha 3 - WiFi Nome
+display.setCursor(0, 30);
+if (wifiConnected) {
+  String ssid = WiFi.SSID();
+  if (ssid.length() > 19) ssid = ssid.substring(0,19);
+  display.print("W:");
+  display.print(ssid);
+} else {
+  display.print("WiFi: OFF");
 }
+
+// Linha 4 - WiFi IP
+display.setCursor(0, 40);
+if (wifiConnected) {
+  display.print("IP: ");
+  display.print(WiFi.localIP());
+} else {
+  display.print("IP: ---");
+}
+
+// Linha 5 - Clientes
+display.setCursor(0, 50);
+display.print("AP:");
+display.print(WiFi.softAPgetStationNum());
+display.print("  W:");
+display.print(webSocket.connectedClients());
+
+display.display();
+}
+
 
 void saveConfig() {
   EEPROM.put(0, config);
@@ -688,28 +696,20 @@ void handleFileRequest() {
   else if (path.endsWith(".json")) contentType = "application/json";
   else if (path.endsWith(".txt")) contentType = "text/plain";
 
-  if (SPIFFS.exists(path)) {
+   if (SPIFFS.exists(path)) {
     File file = SPIFFS.open(path, "r");
+
+    // Cabeçalho extra para cache no navegador
+    server.sendHeader("Cache-Control", "max-age=86400"); // 1 dia
     size_t sent = server.streamFile(file, contentType);
     file.close();
+
     if (sent > 0) {
       lastNetworkActivity = millis();
+      Serial.printf("[Web] Arquivo %s enviado (%u bytes)\n", path.c_str(), (unsigned)sent);
+    } else {
+      Serial.printf("[Web] Falha ao enviar arquivo %s\n", path.c_str());
     }
-     WiFiClient client = server.client();
-    server.setContentLength(file.size());
-    server.send(200, contentType, "");  // Cabeçalho HTTP sem corpo
-
-    const size_t bufferSize = 512;
-    uint8_t buffer[bufferSize];
-    while (file.available()) {
-      size_t len = file.readBytes((char*)buffer, bufferSize);
-      client.write(buffer, len);
-      delay(1); // Pequena pausa evita travamentos no modo AP
-    }
-
-    file.close();
-    lastNetworkActivity = millis();
-    Serial.printf("[Web] Arquivo %s enviado com sucesso\n", path.c_str());
   } else {
     server.send(404, "text/plain", "404: Not Found");
     Serial.printf("[Web] Arquivo não encontrado: %s\n", path.c_str());
@@ -743,6 +743,12 @@ void onWebSocketEvent(uint8_t client_num, WStype_t type, uint8_t *payload, size_
       doc["numAmostrasMedia"] = config.numAmostrasMedia;
       doc["timeoutCalibracao"] = config.timeoutCalibracao;
       doc["tareOffset"] = config.tareOffset;
+      doc["ssid"] = config.staSSID;   // SSID atual 
+      doc["senha"] = config.staPassword; // Senha atual
+      doc["wifi_status"] = WiFi.status();
+      doc["wifi_ip"] = WiFi.localIP().toString();
+      doc["ap_active"] = apActive;
+      doc["ap_ip"] = WiFi.softAPIP().toString();
       
       String output;
       serializeJson(doc, output);
