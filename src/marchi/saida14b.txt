@@ -1,5 +1,0 @@
-
-     UNIT =   9
-     Pi =    3.141592653589793E+00
-     SAIDA = saida14b.txt                                      
-     TEXTO = Notepad saida14b.txt                              
