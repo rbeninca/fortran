@@ -8,9 +8,9 @@ let emaInitialized = false;
 let maxForce = -Infinity;
 
 // --- Variáveis para cálculo de Leituras por Segundo (RPS) ---
-let readingsCounter = 0;
-let lastRpsUpdateTime = Date.now();
-let lastCalculatedRps = 0;
+let lastTempoMCU = null;
+let totalLeiturasMCU = 0;
+let rpsCalculadoMCU = 0;
 
 /**
  * Conecta ao servidor WebSocket do ESP8266.
@@ -123,8 +123,17 @@ function processDataPoint(data) {
         massaKg: massaKg
     });
 
-    // Incrementa o contador para o cálculo de Leituras por Segundo (RPS).
-    readingsCounter++;
+ 
+    // --- RPS USANDO TEMPO DO MICROCONTROLADOR ---
+    if (lastTempoMCU !== null) {
+        const deltaTempo = data.tempo - lastTempoMCU; // segundos vindos do MCU
+        if (deltaTempo > 0) {
+            const rpsInstantaneo = 1 / deltaTempo; // leituras por segundo
+            rpsCalculadoMCU = (rpsCalculadoMCU * totalLeiturasMCU + rpsInstantaneo) / (totalLeiturasMCU + 1);
+            totalLeiturasMCU++;
+        }
+    }
+    lastTempoMCU = data.tempo;
 }
 
 /**
@@ -158,14 +167,8 @@ self.onmessage = (e) => {
             break;
 
         // A UI está pedindo a taxa de leituras por segundo.
-        case 'getRPS':
-            const now = Date.now();
-            if (now - lastRpsUpdateTime >= 1000) {
-                lastCalculatedRps = readingsCounter;
-                readingsCounter = 0;
-                lastRpsUpdateTime = now;
-            }
-            self.postMessage({ type: 'rps', payload: lastCalculatedRps });
+          case 'getRPS':
+            self.postMessage({ type: 'rps', payload: rpsCalculadoMCU.toFixed(1) });
             break;
 
         // A UI está enviando um comando para o ESP32 (ex: 't' para tarar).

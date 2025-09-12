@@ -194,7 +194,7 @@ void loop() {
   yield();
 
   // === COLETOR DE DADOS - SEMPRE ATIVO ===
-  if (millis() - lastReadTime >= 12) {
+  if (millis() - lastReadTime >= 15) {
     lastReadTime = millis();
 
     // Pula leituras apenas durante processos especiais
@@ -684,7 +684,7 @@ bool aguardarEstabilidade(const String &proposito) {
 
 void handleFileRequest() {
   String path = server.uri();
-  if (path.endsWith("/")) path += "index.html";
+  if (path.endsWith("/")) path += "main.html";
   
   String contentType = "text/plain";
   if (path.endsWith(".html")) contentType = "text/html";
