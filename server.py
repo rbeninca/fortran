@@ -203,7 +203,106 @@ def init_mysql_db():
     else:
         logging.warning("Não foi possível inicializar o banco de dados MySQL: conexão não estabelecida.")
 
+# ================== Configurações - Persistência ==================
+async def save_config_to_db(config: Dict[str, Any]) -> bool:
+    """Salva configurações do ESP no banco de dados MySQL"""
+    global mysql_connection, mysql_connected
+    
+    if not mysql_connected or not mysql_connection or not mysql_connection.open:
+        mysql_connection = connect_to_mysql()
+        if not mysql_connection or not mysql_connected:
+            logging.error("[CONFIG_DB] Não foi possível reconectar ao MySQL para salvar configurações.")
+            return False
+    
+    try:
+        with mysql_connection.cursor() as cursor:
+            sql = """
+            INSERT INTO configuracoes (
+                conversionFactor, gravity, tareOffset, leiturasEstaveis,
+                toleranciaEstabilidade, mode, usarEMA, numAmostrasMedia,
+                timeoutCalibracao, capacidadeMaximaGramas, percentualAcuracia
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+            )
+            ON DUPLICATE KEY UPDATE
+                conversionFactor=%s, gravity=%s, tareOffset=%s, leiturasEstaveis=%s,
+                toleranciaEstabilidade=%s, mode=%s, usarEMA=%s, numAmostrasMedia=%s,
+                timeoutCalibracao=%s, capacidadeMaximaGramas=%s, percentualAcuracia=%s,
+                data_modificacao=CURRENT_TIMESTAMP
+            """
+            values = (
+                config.get('conversionFactor', 1.0),
+                config.get('gravity', 9.80665),
+                config.get('tareOffset', 0),
+                config.get('leiturasEstaveis', 5),
+                config.get('toleranciaEstabilidade', 0.05),
+                config.get('mode', 0),
+                config.get('usarEMA', 1),
+                config.get('numAmostrasMedia', 10),
+                config.get('timeoutCalibracao', 30000),
+                config.get('capacidadeMaximaGramas', 5000.0),
+                config.get('percentualAcuracia', 0.05),
+                # Repeat for ON DUPLICATE KEY UPDATE
+                config.get('conversionFactor', 1.0),
+                config.get('gravity', 9.80665),
+                config.get('tareOffset', 0),
+                config.get('leiturasEstaveis', 5),
+                config.get('toleranciaEstabilidade', 0.05),
+                config.get('mode', 0),
+                config.get('usarEMA', 1),
+                config.get('numAmostrasMedia', 10),
+                config.get('timeoutCalibracao', 30000),
+                config.get('capacidadeMaximaGramas', 5000.0),
+                config.get('percentualAcuracia', 0.05),
+            )
+            cursor.execute(sql, values)
+            mysql_connection.commit()
+            logging.info("[CONFIG_DB] Configurações salvas no banco de dados com sucesso")
+            return True
+    except pymysql.Error as e:
+        logging.error(f"[CONFIG_DB] Erro ao salvar configurações: {e}")
+        return False
+
+async def load_config_from_db() -> Dict[str, Any]:
+    """Carrega configurações do banco de dados MySQL"""
+    global mysql_connection, mysql_connected
+    
+    if not mysql_connected or not mysql_connection or not mysql_connection.open:
+        mysql_connection = connect_to_mysql()
+        if not mysql_connection or not mysql_connected:
+            logging.error("[CONFIG_DB] Não foi possível conectar ao MySQL para carregar configurações.")
+            return {}
+    
+    try:
+        with mysql_connection.cursor() as cursor:
+            cursor.execute("SELECT * FROM configuracoes WHERE id = 1")
+            result = cursor.fetchone()
+            if result:
+                config = {
+                    "type": "config",
+                    "conversionFactor": float(result.get('conversionFactor', 1.0)),
+                    "gravity": float(result.get('gravity', 9.80665)),
+                    "tareOffset": int(result.get('tareOffset', 0)),
+                    "leiturasEstaveis": int(result.get('leiturasEstaveis', 5)),
+                    "toleranciaEstabilidade": float(result.get('toleranciaEstabilidade', 0.05)),
+                    "mode": int(result.get('mode', 0)),
+                    "usarEMA": int(result.get('usarEMA', 1)),
+                    "numAmostrasMedia": int(result.get('numAmostrasMedia', 10)),
+                    "timeoutCalibracao": int(result.get('timeoutCalibracao', 30000)),
+                    "capacidadeMaximaGramas": float(result.get('capacidadeMaximaGramas', 5000.0)),
+                    "percentualAcuracia": float(result.get('percentualAcuracia', 0.05)),
+                }
+                logging.info("[CONFIG_DB] Configurações carregadas do banco de dados")
+                return config
+            else:
+                logging.warning("[CONFIG_DB] Nenhuma configuração encontrada no banco de dados")
+                return {}
+    except pymysql.Error as e:
+        logging.error(f"[CONFIG_DB] Erro ao carregar configurações: {e}")
+        return {}
+
 async def save_session_to_mysql_db(session_data: Dict[str, Any]):
+
     global mysql_connection, mysql_connected
     if not mysql_connected or not mysql_connection or not mysql_connection.open:
         logging.warning("Tentando salvar sessão no MySQL, mas a conexão não está ativa. Tentando reconectar...")
@@ -373,6 +472,8 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_get_sessao_by_id()
         elif self.path == '/api/time':
             self.handle_get_time()
+        elif self.path == '/api/config':
+            self.handle_get_config()
         else:
             super().do_GET()
 
@@ -381,6 +482,8 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_post_sessao()
         elif self.path == '/api/time/sync':
             self.handle_sync_time()
+        elif self.path == '/api/config/restore':
+            self.handle_post_restore_config()
         else:
             self.send_error(404, "Not Found")
 
@@ -539,6 +642,17 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         # Envia sempre em UTC (GMT) com sufixo 'Z' para indicar timezone
         current_time = datetime.utcnow().isoformat() + 'Z'
         self.send_json_response(200, {"time": current_time})
+
+    def handle_get_config(self):
+        """Carrega configurações salvas do MySQL e retorna como JSON"""
+        logging.info("[CONFIG_API] GET /api/config - Carregando configurações...")
+        loop = asyncio.get_event_loop()
+        config = loop.run_until_complete(load_config_from_db())
+        if config:
+            self.send_json_response(200, config)
+        else:
+            logging.warning("[CONFIG_API] Nenhuma configuração encontrada, retornando vazio")
+            self.send_json_response(200, {"type": "config", "message": "No saved config"})
 
     def handle_sync_time(self):
         """Sincroniza a hora do servidor com a hora recebida do cliente"""
@@ -760,8 +874,16 @@ def parse_config_packet(data: bytes) -> Optional[Dict[str, Any]]:
         sanitized = sanitize_for_json(config)
         # Log dos valores recebidos para debug
         logging.info(f"[CONFIG_PACKET] capacidadeMaximaGramas={sanitized.get('capacidadeMaximaGramas')}, percentualAcuracia={sanitized.get('percentualAcuracia')}")
+        
+        # NOVO: Salvar configuração no banco de dados MySQL de forma assíncrona
+        try:
+            asyncio.create_task(save_config_to_db(sanitized))
+        except Exception as e:
+            logging.error(f"[CONFIG_PACKET] Erro ao agendar salvamento de configurações: {e}")
+        
         return sanitized
     except struct.error: return None
+
 
 def parse_status_packet(data: bytes) -> Optional[Dict[str, Any]]:
     if len(data) != SIZE_STATUS: return None
