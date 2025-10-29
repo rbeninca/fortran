@@ -306,6 +306,39 @@ fix_networkmanager_nat() {
 }
 
 # ============================================================
+# CONFIGURAR DNS LOCAL PARA HOTSPOT
+# ============================================================
+configure_local_dns() {
+    log_info "Configurando DNS local para hotspot..."
+    
+    # Criar diretório de configuração do dnsmasq se não existir
+    mkdir -p /etc/NetworkManager/dnsmasq-shared.d
+    
+    # Criar arquivo de configuração personalizada para o hotspot
+    cat > /etc/NetworkManager/dnsmasq-shared.d/hotspot-dns.conf <<EOF
+# DNS local para hotspot
+# Permite acessar o gateway com nome amigável
+address=/tvbox/$AP_IPV4_ADDRESS
+address=/gateway.local/$AP_IPV4_ADDRESS
+address=/balanca/$AP_IPV4_ADDRESS
+address=/gfig.local/$AP_IPV4_ADDRESS
+
+# Comentário: Resolve esses nomes para o IP do hotspot (10.1.1.1)
+# Clientes conectados ao hotspot poderão acessar via:
+#   - ssh root@tvbox
+#   - ssh root@gateway.local
+#   - ssh root@balanca
+#   - ssh root@gfig.local
+EOF
+    
+    log_success "DNS local configurado:"
+    log_info "  - tvbox → $AP_IPV4_ADDRESS"
+    log_info "  - gateway.local → $AP_IPV4_ADDRESS"
+    log_info "  - balanca → $AP_IPV4_ADDRESS"
+    log_info "  - gfig.local → $AP_IPV4_ADDRESS"
+}
+
+# ============================================================
 # MÉTODO 1: USAR NETWORKMANAGER (PREFERENCIAL)
 # ============================================================
 setup_with_nmcli() {
@@ -391,6 +424,9 @@ setup_with_nmcli() {
 
         log_info "Aplicando correções de NAT/Firewall..."
         fix_networkmanager_nat
+        
+        log_info "Configurando DNS local para hotspot..."
+        configure_local_dns
 
         # Configurar IP forwarding permanente
         log_info "Configurando IP forwarding permanente..."
