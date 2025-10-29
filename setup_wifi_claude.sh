@@ -359,31 +359,30 @@ setup_with_nmcli() {
         nmcli con modify "$AP_CONNECTION_NAME" 802-11-wireless.channel "$AP_CHANNEL" 2>/dev/null || \
             log_warn "Não foi possível definir canal específico"
 
-        # DEIXAR NETWORKMANAGER GERENCIAR O IP AUTOMATICAMENTE
-        # Isto evita conflitos de DHCP e garante conectividade
-        log_info "Configurando gerenciamento de IP automático..."
+        # CONFIGURAR IP MANUALMENTE COM 10.1.1.1
+        # NetworkManager hotspot requer IP manual para funcionar corretamente
+        log_info "Configurando IP do hotspot como ${AP_IPV4_ADDRESS}/24..."
         
         # Aguardar um pouco para o hotspot estabilizar
         sleep 3
         
-        # Forçar IP automático (NÃO manual)
         nmcli con down "$AP_CONNECTION_NAME" 2>/dev/null || true
         sleep 1
         
-        # Limpar qualquer configuração manual de IP
-        nmcli con modify "$AP_CONNECTION_NAME" ipv4.method auto 2>/dev/null || true
-        nmcli con modify "$AP_CONNECTION_NAME" ipv4.addresses "" 2>/dev/null || true
-        nmcli con modify "$AP_CONNECTION_NAME" ipv4.gateway "" 2>/dev/null || true
-        nmcli con modify "$AP_CONNECTION_NAME" ipv4.dns "" 2>/dev/null || true
+        # Configurar IP manualmente
+        nmcli con modify "$AP_CONNECTION_NAME" ipv4.method manual 2>/dev/null || true
+        nmcli con modify "$AP_CONNECTION_NAME" ipv4.addresses "${AP_IPV4_ADDRESS}/24" 2>/dev/null || true
+        nmcli con modify "$AP_CONNECTION_NAME" ipv4.gateway "${AP_IPV4_ADDRESS}" 2>/dev/null || true
+        nmcli con modify "$AP_CONNECTION_NAME" ipv4.dns "8.8.8.8 8.8.4.4" 2>/dev/null || true
         
         # Recarregar conexão para aplicar mudanças
         nmcli con up "$AP_CONNECTION_NAME" || log_warn "Falha ao ativar conexão"
         
         # Aguardar estabilização
-        log_info "Aguardando interface estabilizar (15 segundos)..."
-        sleep 15
+        log_info "Aguardando interface estabilizar (10 segundos)..."
+        sleep 10
 
-        log_success "Hotspot configurado com NetworkManager (IP automático)"
+        log_success "Hotspot configurado com NetworkManager (IP: ${AP_IPV4_ADDRESS})"
 
         # Habilitar autoconnect para iniciar automaticamente no boot
         log_info "Configurando inicialização automática..."
