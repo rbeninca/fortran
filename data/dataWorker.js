@@ -26,29 +26,8 @@ let rpsAtual = 0;
 // Não espera por set_ws_url, o que acelera muito a primeira conexão
 (() => {
     console.log("[Worker] 🚀 Tentando conexão rápida com URL padrão...");
-    
-    // Em Web Workers, self.location existe mas vamos ter uma abordagem mais robusta
-    // Extrair hostname da URL base do worker
-    let host;
-    try {
-        // self.location deve funcionar em Web Workers modernos
-        host = self.location.hostname;
-        console.log(`[Worker] Hostname detectado via self.location: ${host}`);
-    } catch (e) {
-        console.warn("[Worker] self.location não disponível, tentando alternativa:", e);
-        // Fallback: tentar extrair do baseURI ou assumir padrão
-        try {
-            const baseURL = new URL(self.location.href || '/');
-            host = baseURL.hostname;
-            console.log(`[Worker] Hostname extraído da URL: ${host}`);
-        } catch (e2) {
-            // Último fallback: não definir wsURL, esperar pelo set_ws_url
-            console.warn("[Worker] Não foi possível detectar hostname, aguardando set_ws_url");
-            return; // Não tenta conectar agora, espera pelo set_ws_url
-        }
-    }
-    
-    if (self.location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
+    let host = location.hostname;
+    if (location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
         host = 'localhost';
     }
     wsURL = `ws://${host}:81`;
@@ -72,12 +51,11 @@ function connectWebSocket() {
     // If wsURL is empty, try to construct it from location
     if (!finalWsURL) {
         console.log("[Worker] wsURL is empty. Constructing from location.");
-        // Em Web Workers, usar self.location ao invés de location
-        let host = self.location.hostname;
+        let host = location.hostname;
         let port = 81;
 
         // Special handling for development servers or direct IP access
-        if (self.location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
+        if (location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
             host = 'localhost';
         }
         finalWsURL = `ws://${host}:${port}`;
