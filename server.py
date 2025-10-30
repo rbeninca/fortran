@@ -752,8 +752,7 @@ async def ws_server_main():
             ping_interval=30,  # Enviar ping a cada 30 segundos
             ping_timeout=10,   # Esperar 10 segundos por pong
             close_timeout=10,  # Timeout para fechar conexão
-            max_queue=32,      # Buffer de mensagens
-            ping_interval_secs=30
+            max_queue=32       # Buffer de mensagens
         ):
             logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack) com keepalive (ping a cada 30s, timeout 10s)")
             await asyncio.Future()
