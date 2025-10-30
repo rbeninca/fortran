@@ -29,7 +29,7 @@ SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "921600"))
 SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyUSB0")
 HTTP_PORT   = int(os.environ.get("HTTP_PORT", "80"))
 WS_PORT     = int(os.environ.get("WS_PORT", "81"))
-BIND_HOST   = os.environ.get("BIND_HOST", "0.0.0.0")
+BIND_HOST   = os.environ.get("BIND_HOST", "::")  # :: para dual-stack (IPv4 + IPv6)
 V6ONLY_ENV  = os.environ.get("IPV6_V6ONLY", "0")
 
 # MySQL Config
@@ -706,8 +706,23 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data, default=str).encode('utf-8'))
 
 class DualStackTCPServer(socketserver.TCPServer):
-    address_family = socket.AF_INET # Force IPv4
+    address_family = socket.AF_INET6  # IPv6 com dual-stack (aceita IPv4 e IPv6)
     allow_reuse_address = True
+    
+    def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True):
+        # Desabilitar IPV6_V6ONLY para permitir dual-stack
+        super().__init__(server_address, RequestHandlerClass, bind_and_activate=False)
+        
+        # Configurar socket para aceitar tanto IPv4 quanto IPv6
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, int(V6ONLY_ENV))
+        
+        if bind_and_activate:
+            try:
+                self.server_bind()
+                self.server_activate()
+            except:
+                self.server_close()
+                raise
 
 def start_http_server():
     try:
