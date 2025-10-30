@@ -29,8 +29,8 @@ SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "921600"))
 SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyUSB0")
 HTTP_PORT   = int(os.environ.get("HTTP_PORT", "80"))
 WS_PORT     = int(os.environ.get("WS_PORT", "81"))
-BIND_HOST   = os.environ.get("BIND_HOST", "0.0.0.0")
-V6ONLY_ENV  = os.environ.get("IPV6_V6ONLY", "0")
+BIND_HOST   = os.environ.get("BIND_HOST", "::")  # :: = dual-stack (IPv4 + IPv6)
+V6ONLY_ENV  = os.environ.get("IPV6_V6ONLY", "0")  # 0 = aceita IPv4 e IPv6
 
 # MySQL Config
 MYSQL_HOST = os.environ.get("MYSQL_HOST", "db")
@@ -719,8 +719,13 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data, default=str).encode('utf-8'))
 
 class DualStackTCPServer(socketserver.TCPServer):
-    address_family = socket.AF_INET  # IPv4
+    address_family = socket.AF_INET6  # IPv6 com dual-stack
     allow_reuse_address = True
+    
+    def server_bind(self):
+        # Configurar IPV6_V6ONLY para permitir IPv4 também
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        super().server_bind()
 
 def start_http_server():
     try:
@@ -783,8 +788,14 @@ async def ws_handler(websocket):
 
 async def ws_server_main():
     try:
-        async with websockets.serve(ws_handler, BIND_HOST, WS_PORT, max_size=None):
-            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT}")
+        # Criar socket IPv6 com dual-stack (aceita IPv4 e IPv6)
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)  # Aceita IPv4 também
+        sock.bind((BIND_HOST, WS_PORT))
+        
+        async with websockets.serve(ws_handler, sock=sock, max_size=None):
+            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack)")
             await asyncio.Future()
     except OSError as e:
         logging.error(f"Falha ao iniciar WebSocket: {e}", exc_info=True)
