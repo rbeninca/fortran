@@ -785,8 +785,15 @@ async def ws_handler(websocket):
 
 async def ws_server_main():
     try:
-        async with websockets.serve(ws_handler, BIND_HOST, WS_PORT, max_size=None):
-            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT}")
+        # Criar servidor WebSocket com suporte dual-stack (IPv4 + IPv6)
+        async with websockets.serve(
+            ws_handler, 
+            BIND_HOST, 
+            WS_PORT, 
+            max_size=None,
+            family=socket.AF_INET6  # Forçar IPv6 para dual-stack
+        ):
+            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack IPv4+IPv6)")
             await asyncio.Future()
     except OSError as e:
         logging.error(f"Falha ao iniciar WebSocket: {e}", exc_info=True)
