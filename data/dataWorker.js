@@ -26,8 +26,9 @@ let rpsAtual = 0;
 // Não espera por set_ws_url, o que acelera muito a primeira conexão
 (() => {
     console.log("[Worker] 🚀 Tentando conexão rápida com URL padrão...");
-    let host = location.hostname;
-    if (location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
+    // Em Web Workers, usar self.location ao invés de location
+    let host = self.location.hostname;
+    if (self.location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
         host = 'localhost';
     }
     wsURL = `ws://${host}:81`;
@@ -51,11 +52,12 @@ function connectWebSocket() {
     // If wsURL is empty, try to construct it from location
     if (!finalWsURL) {
         console.log("[Worker] wsURL is empty. Constructing from location.");
-        let host = location.hostname;
+        // Em Web Workers, usar self.location ao invés de location
+        let host = self.location.hostname;
         let port = 81;
 
         // Special handling for development servers or direct IP access
-        if (location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
+        if (self.location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
             host = 'localhost';
         }
         finalWsURL = `ws://${host}:${port}`;
