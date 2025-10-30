@@ -600,23 +600,29 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             logging.error(f"Erro inesperado ao buscar IPv4: {e}")
             ips["ipv4"] = "Erro ao obter"
         
-        # Buscar IPv6 usando api64.ipify.org (suporta IPv6)
+        # Buscar IPv6 - tentar criar socket IPv6 direto
         try:
-            # Criar um socket IPv6 para forçar conexão IPv6
-            context = urllib.request.urlopen('https://api64.ipify.org?format=json', timeout=5)
-            data = json.loads(context.read().decode('utf-8'))
-            ip_response = data.get('ip', '')
+            # Criar socket IPv6 e conectar a um servidor que responde só em IPv6
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            sock.settimeout(5)
             
-            # Verificar se é um endereço IPv6 válido (contém ':')
-            if ':' in ip_response and not ip_response.startswith('fe80:'):
-                ips["ipv6"] = ip_response
-                logging.info(f"IPv6 público obtido: {ips['ipv6']}")
+            # Conectar ao Google DNS via IPv6 (2001:4860:4860::8888)
+            sock.connect(('2001:4860:4860::8888', 443))
+            
+            # Pegar o endereço local usado na conexão
+            local_addr = sock.getsockname()[0]
+            sock.close()
+            
+            # Verificar se é um endereço IPv6 global (não link-local)
+            if ':' in local_addr and not local_addr.startswith('fe80:'):
+                ips["ipv6"] = local_addr
+                logging.info(f"IPv6 público obtido via socket: {ips['ipv6']}")
             else:
-                logging.info(f"Resposta não é IPv6 válido: {ip_response}")
+                logging.info(f"Endereço IPv6 local não é público: {local_addr}")
                 ips["ipv6"] = "Não disponível"
                 
         except Exception as e:
-            logging.warning(f"Erro ao buscar IPv6: {e}")
+            logging.warning(f"Erro ao buscar IPv6 via socket: {e}")
             ips["ipv6"] = "Não disponível"
         
         self.send_json_response(200, ips)
