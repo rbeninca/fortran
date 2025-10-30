@@ -691,6 +691,8 @@ def start_http_server():
 # ================== WebSocket ==================
 async def ws_handler(websocket):
     CONNECTED_CLIENTS.add(websocket)
+    client_addr = websocket.remote_address if hasattr(websocket, 'remote_address') else 'unknown'
+    logging.info(f"[WS] Nova conexão de {client_addr}. Total de clientes: {len(CONNECTED_CLIENTS)}")
     try:
         # Send initial status on connect
         await websocket.send(json.dumps({"mysql_connected": mysql_connected}))
@@ -728,10 +730,11 @@ async def ws_handler(websocket):
                 logging.error(f"Mensagem WS inválida: {message}")
             except Exception as e:
                 logging.error(f"Erro ao processar comando WS: {e}", exc_info=True)
-    except websockets.exceptions.ConnectionClosed:
-        pass
+    except websockets.exceptions.ConnectionClosed as e:
+        logging.info(f"[WS] Conexão fechada: {e}. Clientes restantes: {len(CONNECTED_CLIENTS)}")
     finally:
-        CONNECTED_CLIENTS.remove(websocket)
+        CONNECTED_CLIENTS.discard(websocket)
+        logging.debug(f"[WS] Cliente removido. Total de clientes: {len(CONNECTED_CLIENTS)}")
 
 async def ws_server_main():
     try:
@@ -749,9 +752,10 @@ async def ws_server_main():
             ping_interval=30,  # Enviar ping a cada 30 segundos
             ping_timeout=10,   # Esperar 10 segundos por pong
             close_timeout=10,  # Timeout para fechar conexão
-            max_queue=32       # Buffer de mensagens
+            max_queue=32,      # Buffer de mensagens
+            ping_interval_secs=30
         ):
-            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack) com keepalive")
+            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack) com keepalive (ping a cada 30s, timeout 10s)")
             await asyncio.Future()
     except OSError as e:
         logging.error(f"Falha ao iniciar WebSocket: {e}", exc_info=True)
