@@ -599,35 +599,26 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             logging.error(f"Erro inesperado ao buscar IPv4: {e}")
             ips["ipv4"] = "Erro ao obter"
         
-        # Buscar IPv6 local (da própria máquina)
+        # Buscar IPv6 - tentar detectar IPv6 global do próprio servidor
         try:
-            import subprocess
-            # Pegar IPv6 global da interface principal (não link-local)
-            result = subprocess.run(
-                ["ip", "-6", "addr", "show", "scope", "global"],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
+            # Tentar conectar a um servidor externo para descobrir nosso IPv6
+            s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            s.settimeout(2)
+            # Conectar ao DNS do Google via IPv6 (não envia dados, só estabelece rota)
+            s.connect(("2001:4860:4860::8888", 80))
+            ipv6_addr = s.getsockname()[0]
+            s.close()
             
-            if result.returncode == 0:
-                # Procurar por endereço IPv6 global (não temporary)
-                import re
-                ipv6_matches = re.findall(r'inet6 ([0-9a-f:]+)/\d+', result.stdout)
-                
-                if ipv6_matches:
-                    # Pegar o primeiro IPv6 global encontrado
-                    ips["ipv6"] = ipv6_matches[0]
-                    logging.info(f"IPv6 local obtido: {ips['ipv6']}")
-                else:
-                    logging.info("Nenhum IPv6 global encontrado")
-                    ips["ipv6"] = "Não disponível"
+            # Verificar se é um endereço global válido (não link-local fe80::)
+            if ipv6_addr and not ipv6_addr.startswith('fe80:'):
+                ips["ipv6"] = ipv6_addr
+                logging.info(f"IPv6 detectado: {ips['ipv6']}")
             else:
-                logging.warning("Comando 'ip -6 addr' falhou")
+                logging.info("Apenas IPv6 link-local encontrado")
                 ips["ipv6"] = "Não disponível"
                 
         except Exception as e:
-            logging.warning(f"Erro ao buscar IPv6 local: {e}")
+            logging.warning(f"Erro ao detectar IPv6: {e}")
             ips["ipv6"] = "Não disponível"
         
         self.send_json_response(200, ips)
