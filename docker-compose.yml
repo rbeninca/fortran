@@ -22,7 +22,7 @@ services:
       SERIAL_BAUD: "921600"
       WS_PORT: "81"
       HTTP_PORT: "80"
-      MYSQL_HOST: "db"
+      MYSQL_HOST: "127.0.0.1"
       MYSQL_USER: "balanca_user"
       MYSQL_PASSWORD: "balanca_password"
       MYSQL_DB: "balanca_gfig"
