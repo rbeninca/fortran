@@ -580,7 +580,7 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         """Retorna os IPs públicos (IPv4 e IPv6) do servidor"""
         import urllib.request
         import urllib.error
-        import http.client
+        import socket
         
         ips = {
             "ipv4": "Não disponível",
@@ -600,15 +600,12 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             logging.error(f"Erro inesperado ao buscar IPv4: {e}")
             ips["ipv4"] = "Erro ao obter"
         
-        # Buscar IPv6 público - forçar conexão IPv6
+        # Buscar IPv6 usando api64.ipify.org (suporta IPv6)
         try:
-            # Criar conexão HTTP forçando IPv6
-            conn = http.client.HTTPSConnection("ifconfig.info", timeout=5, 
-                                              source_address=('::', 0))
-            conn.request("GET", "/ip")
-            response = conn.getresponse()
-            ip_response = response.read().decode('utf-8').strip()
-            conn.close()
+            # Criar um socket IPv6 para forçar conexão IPv6
+            context = urllib.request.urlopen('https://api64.ipify.org?format=json', timeout=5)
+            data = json.loads(context.read().decode('utf-8'))
+            ip_response = data.get('ip', '')
             
             # Verificar se é um endereço IPv6 válido (contém ':')
             if ':' in ip_response and not ip_response.startswith('fe80:'):
@@ -619,23 +616,8 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
                 ips["ipv6"] = "Não disponível"
                 
         except Exception as e:
-            logging.warning(f"Erro ao buscar IPv6 público: {e}")
-            # Tentar método alternativo: usar socket direto
-            try:
-                s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-                s.settimeout(2)
-                s.connect(("2001:4860:4860::8888", 80))
-                ipv6_addr = s.getsockname()[0]
-                s.close()
-                
-                if ipv6_addr and not ipv6_addr.startswith('fe80:'):
-                    ips["ipv6"] = ipv6_addr
-                    logging.info(f"IPv6 detectado via socket: {ips['ipv6']}")
-                else:
-                    ips["ipv6"] = "Não disponível"
-            except Exception as e2:
-                logging.warning(f"Método alternativo IPv6 também falhou: {e2}")
-                ips["ipv6"] = "Não disponível"
+            logging.warning(f"Erro ao buscar IPv6: {e}")
+            ips["ipv6"] = "Não disponível"
         
         self.send_json_response(200, ips)
 
