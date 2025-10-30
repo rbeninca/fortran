@@ -7,12 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: balanca
     restart: always
-    depends_on:
-      - db
     mem_limit: 512m
-    ports:
-      - "80:80"
-      - "81:81"
 
     # Dispositivo serial (ajuste para ttyACM0 se necessário)
     devices:
@@ -27,7 +22,7 @@ services:
       SERIAL_BAUD: "921600"
       WS_PORT: "81"
       HTTP_PORT: "80"
-      MYSQL_HOST: "db"
+      MYSQL_HOST: "127.0.0.1"
       MYSQL_USER: "balanca_user"
       MYSQL_PASSWORD: "balanca_password"
       MYSQL_DB: "balanca_gfig"
@@ -46,8 +41,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    networks:
-      - balanca_network
+    network_mode: host
 
   db:
     image: mariadb:11
@@ -69,7 +63,8 @@ services:
     ports:
       - "3306:3306"
     networks:
-      - balanca_network
+      balanca_network:
+        ipv6_address: 2804:4950:1:803e::3
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u balanca_user -p'balanca_password' || exit 1"]
       interval: 10s
@@ -80,6 +75,14 @@ services:
 networks:
   balanca_network:
     driver: bridge
+    enable_ipv6: true
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1
+        - subnet: 2804:4950:1:803e::/64
+          gateway: 2804:4950:1:803e::1
 
 volumes:
   mysql_data:

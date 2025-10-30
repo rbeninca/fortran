@@ -29,7 +29,7 @@ SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "921600"))
 SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyUSB0")
 HTTP_PORT   = int(os.environ.get("HTTP_PORT", "80"))
 WS_PORT     = int(os.environ.get("WS_PORT", "81"))
-BIND_HOST   = os.environ.get("BIND_HOST", "0.0.0.0")
+BIND_HOST   = os.environ.get("BIND_HOST", "::")  # Usar IPv6 dual-stack por padrão
 V6ONLY_ENV  = os.environ.get("IPV6_V6ONLY", "0")
 
 # MySQL Config
@@ -666,8 +666,13 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data, default=str).encode('utf-8'))
 
 class DualStackTCPServer(socketserver.TCPServer):
-    address_family = socket.AF_INET # Force IPv4
+    address_family = socket.AF_INET6  # IPv6 com suporte dual-stack
     allow_reuse_address = True
+    
+    def server_bind(self):
+        # Habilita IPv4 em socket IPv6 (V6_ONLY=0)
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        return super().server_bind()
 
 def start_http_server():
     try:
@@ -686,6 +691,8 @@ def start_http_server():
 # ================== WebSocket ==================
 async def ws_handler(websocket):
     CONNECTED_CLIENTS.add(websocket)
+    client_addr = websocket.remote_address if hasattr(websocket, 'remote_address') else 'unknown'
+    logging.info(f"[WS] Nova conexão de {client_addr}. Total de clientes: {len(CONNECTED_CLIENTS)}")
     try:
         # Send initial status on connect
         await websocket.send(json.dumps({"mysql_connected": mysql_connected}))
@@ -723,15 +730,32 @@ async def ws_handler(websocket):
                 logging.error(f"Mensagem WS inválida: {message}")
             except Exception as e:
                 logging.error(f"Erro ao processar comando WS: {e}", exc_info=True)
-    except websockets.exceptions.ConnectionClosed:
-        pass
+    except websockets.exceptions.ConnectionClosed as e:
+        logging.info(f"[WS] Conexão fechada: {e}. Clientes restantes: {len(CONNECTED_CLIENTS)}")
     finally:
-        CONNECTED_CLIENTS.remove(websocket)
+        CONNECTED_CLIENTS.discard(websocket)
+        logging.debug(f"[WS] Cliente removido. Total de clientes: {len(CONNECTED_CLIENTS)}")
 
 async def ws_server_main():
     try:
-        async with websockets.serve(ws_handler, BIND_HOST, WS_PORT, max_size=None):
-            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT}")
+        # Criar um socket dual-stack para IPv4 e IPv6
+        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)  # Dual-stack
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((BIND_HOST, WS_PORT))
+        sock.listen(5)
+        
+        async with websockets.serve(
+            ws_handler, 
+            sock=sock, 
+            max_size=None,
+            ping_interval=30,  # Enviar ping a cada 30 segundos
+            ping_timeout=10,   # Esperar 10 segundos por pong
+            close_timeout=10,  # Timeout para fechar conexão
+            max_queue=32       # Buffer de mensagens
+        ):
+            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack IPv4+IPv6)")
+            logging.info(f"  Keepalive habilitado: ping_interval=30s, ping_timeout=10s, close_timeout=10s, max_queue=32")
             await asyncio.Future()
     except OSError as e:
         logging.error(f"Falha ao iniciar WebSocket: {e}", exc_info=True)
