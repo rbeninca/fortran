@@ -73,6 +73,10 @@ serial_lock = threading.Lock()
 mysql_connection = None
 mysql_connected = False
 
+# Cache para IPs públicos (evita múltiplas requisições)
+cached_public_ips = {"ipv4": None, "ipv6": None, "timestamp": 0}
+IP_CACHE_DURATION = 300  # 5 minutos em segundos
+
 # ================== MySQL Utils ==================
 def connect_to_mysql():
     global mysql_connection, mysql_connected
@@ -581,6 +585,21 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         import urllib.request
         import urllib.error
         import socket
+        import time
+        
+        global cached_public_ips
+        
+        # Verificar se o cache ainda é válido (5 minutos)
+        current_time = time.time()
+        if (cached_public_ips["ipv4"] is not None and 
+            cached_public_ips["ipv6"] is not None and
+            (current_time - cached_public_ips["timestamp"]) < IP_CACHE_DURATION):
+            logging.info(f"Retornando IPs do cache (válido por mais {int(IP_CACHE_DURATION - (current_time - cached_public_ips['timestamp']))}s)")
+            self.send_json_response(200, {
+                "ipv4": cached_public_ips["ipv4"],
+                "ipv6": cached_public_ips["ipv6"]
+            })
+            return
         
         ips = {
             "ipv4": "Não disponível",
@@ -600,18 +619,18 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             logging.error(f"Erro inesperado ao buscar IPv4: {e}")
             ips["ipv4"] = "Erro ao obter"
         
-        # Buscar IPv6 - tentar criar socket IPv6 direto
+        # Buscar IPv6 - criar socket IPv6 temporário
+        sock = None
         try:
             # Criar socket IPv6 e conectar a um servidor que responde só em IPv6
             sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-            sock.settimeout(5)
+            sock.settimeout(3)  # Timeout reduzido para 3s
             
             # Conectar ao Google DNS via IPv6 (2001:4860:4860::8888)
             sock.connect(('2001:4860:4860::8888', 443))
             
             # Pegar o endereço local usado na conexão
             local_addr = sock.getsockname()[0]
-            sock.close()
             
             # Verificar se é um endereço IPv6 global (não link-local)
             if ':' in local_addr and not local_addr.startswith('fe80:'):
@@ -624,6 +643,19 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             logging.warning(f"Erro ao buscar IPv6 via socket: {e}")
             ips["ipv6"] = "Não disponível"
+        finally:
+            # SEMPRE fechar o socket, mesmo se houver erro
+            if sock is not None:
+                try:
+                    sock.close()
+                except:
+                    pass
+        
+        # Atualizar cache
+        cached_public_ips["ipv4"] = ips["ipv4"]
+        cached_public_ips["ipv6"] = ips["ipv6"]
+        cached_public_ips["timestamp"] = current_time
+        logging.info(f"Cache de IPs atualizado (válido por {IP_CACHE_DURATION}s)")
         
         self.send_json_response(200, ips)
 
@@ -788,13 +820,14 @@ async def ws_handler(websocket):
 
 async def ws_server_main():
     try:
-        # Criar socket IPv6 com dual-stack (aceita IPv4 e IPv6)
-        sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)  # Aceita IPv4 também
-        sock.bind((BIND_HOST, WS_PORT))
-        
-        async with websockets.serve(ws_handler, sock=sock, max_size=None):
+        # Configurar servidor WebSocket dual-stack (IPv4 + IPv6)
+        async with websockets.serve(
+            ws_handler, 
+            BIND_HOST, 
+            WS_PORT, 
+            max_size=None,
+            family=socket.AF_INET6  # Usa IPv6 (aceita IPv4 automaticamente se IPV6_V6ONLY=0)
+        ):
             logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack)")
             await asyncio.Future()
     except OSError as e:
