@@ -7,12 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: balanca
     restart: always
-    depends_on:
-      - db
     mem_limit: 512m
-    ports:
-      - "80:80"
-      - "81:81"
 
     # Dispositivo serial (ajuste para ttyACM0 se necessário)
     devices:
@@ -46,9 +41,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    networks:
-      balanca_network:
-        ipv6_address: 2804:4950:1:803e::2
+    network_mode: host
 
   db:
     image: mariadb:11
