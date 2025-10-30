@@ -12,6 +12,12 @@ let wsURL = ''; // NOVO: Variável para armazenar a URL do WebSocket
 // NOVO: Buffer para mensagens parciais do WebSocket
 let messageBuffer = "";
 
+// --- Reconexão automática ---
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_INTERVAL = 3000; // 3 segundos entre tentativas
+let reconnectTimeout = null;
+
 // --- Variáveis para cálculo de Leituras por Segundo (RPS) ---
 let lastTempoMCU = null;
 let totalLeiturasMCU = 0;
@@ -95,6 +101,13 @@ function connectWebSocket() {
         console.log(`[Worker] ✅ WebSocket CONECTADO! Estado: ${socket.readyState}, URL: ${socket.url}`);
         self.postMessage({ type: 'status', status: 'connected', message: 'Conectado ao Gateway Serial (Host)' });
         self.postMessage({ type: 'debug', message: `WebSocket connected to: ${socket.url}` });
+        
+        // Reset reconexão quando conectado com sucesso
+        reconnectAttempts = 0;
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+            reconnectTimeout = null;
+        }
 
         // Solicita a configuração muito mais rápido - apenas 100ms após conectar
         try {
@@ -114,6 +127,19 @@ function connectWebSocket() {
         console.log(`[Worker] ⚠️ WebSocket FECHADO. Code: ${event.code}, Reason: ${event.reason}, Clean: ${event.wasClean}. Estado: ${socket ? socket.readyState : 'null'}, URL: ${socket ? socket.url : 'null'}`); // Add null check
         self.postMessage({ type: 'status', status: 'disconnected', message: `Desconectado (${event.code}). Tentando reconectar...` });
         socket = null;
+        
+        // Tenta reconectar automaticamente
+        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            reconnectAttempts++;
+            console.log(`[Worker] 🔄 Tentativa de reconexão ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS} em ${RECONNECT_INTERVAL}ms...`);
+            reconnectTimeout = setTimeout(() => {
+                console.log(`[Worker] ⏳ Reconectando ao WebSocket...`);
+                connectWebSocket();
+            }, RECONNECT_INTERVAL);
+        } else {
+            console.error(`[Worker] ❌ Máximo de tentativas de reconexão (${MAX_RECONNECT_ATTEMPTS}) atingido. Desista.`);
+            self.postMessage({ type: 'status', status: 'error', message: 'Falha permanente em conectar ao WebSocket após múltiplas tentativas.' });
+        }
     };
 
     socket.onerror = (error) => {
