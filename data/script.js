@@ -3050,13 +3050,23 @@ async function buscarIPsPublicos() {
   }
 }
 
-// Função para copiar IP para área de transferência
+// Função para copiar IP para área de transferência no formato URL
 function copiarIP(ip) {
-  navigator.clipboard.writeText(ip).then(() => {
-    showNotification(`IP copiado: ${ip}`, 'success');
+  // Formatar como URL completa
+  let url;
+  if (ip.includes(':')) {
+    // IPv6 - precisa de colchetes
+    url = `http://[${ip}]`;
+  } else {
+    // IPv4 - formato simples
+    url = `http://${ip}`;
+  }
+  
+  navigator.clipboard.writeText(url).then(() => {
+    showNotification(`URL copiada: ${url}`, 'success');
   }).catch(err => {
-    console.error('Erro ao copiar IP:', err);
-    showNotification('Erro ao copiar IP', 'error');
+    console.error('Erro ao copiar URL:', err);
+    showNotification('Erro ao copiar URL', 'error');
   });
 }
 
