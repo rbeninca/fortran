@@ -584,7 +584,6 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         """Retorna os IPs públicos (IPv4 e IPv6) do servidor"""
         import urllib.request
         import urllib.error
-        import socket
         import time
         
         global cached_public_ips
@@ -622,37 +621,24 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             logging.error(f"Erro inesperado ao buscar IPv4: {e}")
             ips["ipv4"] = "Erro ao obter"
         
-        # Buscar IPv6 - criar socket IPv6 temporário
-        sock = None
+        # Buscar IPv6 - usar API HTTP sem criar socket IPv6
         try:
-            # Criar socket IPv6 e conectar a um servidor que responde só em IPv6
-            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-            sock.settimeout(3)  # Timeout reduzido para 3s
-            
-            # Conectar ao Google DNS via IPv6 (2001:4860:4860::8888)
-            sock.connect(('2001:4860:4860::8888', 443))
-            
-            # Pegar o endereço local usado na conexão
-            local_addr = sock.getsockname()[0]
-            
-            # Verificar se é um endereço IPv6 global (não link-local)
-            if ':' in local_addr and not local_addr.startswith('fe80:'):
-                ips["ipv6"] = local_addr
-                logging.info(f"IPv6 público obtido via socket: {ips['ipv6']}")
-            else:
-                logging.info(f"Endereço IPv6 local não é público: {local_addr}")
-                ips["ipv6"] = "Não disponível"
+            # Tentar API que retorna IPv6 (sem criar conexão IPv6 direta)
+            with urllib.request.urlopen('https://api64.ipify.org?format=json', timeout=5) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                ip_response = data.get('ip', '')
                 
+                # Verificar se é IPv6 válido (contém ':')
+                if ':' in ip_response and not ip_response.startswith('fe80:'):
+                    ips["ipv6"] = ip_response
+                    logging.info(f"IPv6 público obtido: {ips['ipv6']}")
+                else:
+                    logging.info(f"API retornou IPv4 ao invés de IPv6: {ip_response}")
+                    ips["ipv6"] = "Não disponível"
+                    
         except Exception as e:
-            logging.warning(f"Erro ao buscar IPv6 via socket: {e}")
+            logging.warning(f"Erro ao buscar IPv6: {e}")
             ips["ipv6"] = "Não disponível"
-        finally:
-            # SEMPRE fechar o socket, mesmo se houver erro
-            if sock is not None:
-                try:
-                    sock.close()
-                except:
-                    pass
         
         # Atualizar cache
         cached_public_ips["ipv4"] = ips["ipv4"]
