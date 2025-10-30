@@ -742,8 +742,16 @@ async def ws_server_main():
         sock.bind((BIND_HOST, WS_PORT))
         sock.listen(5)
         
-        async with websockets.serve(ws_handler, sock=sock, max_size=None):
-            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack)")
+        async with websockets.serve(
+            ws_handler, 
+            sock=sock, 
+            max_size=None,
+            ping_interval=30,  # Enviar ping a cada 30 segundos
+            ping_timeout=10,   # Esperar 10 segundos por pong
+            close_timeout=10,  # Timeout para fechar conexão
+            max_queue=32       # Buffer de mensagens
+        ):
+            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT} (dual-stack) com keepalive")
             await asyncio.Future()
     except OSError as e:
         logging.error(f"Falha ao iniciar WebSocket: {e}", exc_info=True)
