@@ -26,8 +26,28 @@ let rpsAtual = 0;
 // Não espera por set_ws_url, o que acelera muito a primeira conexão
 (() => {
     console.log("[Worker] 🚀 Tentando conexão rápida com URL padrão...");
-    // Em Web Workers, usar self.location ao invés de location
-    let host = self.location.hostname;
+    
+    // Em Web Workers, self.location existe mas vamos ter uma abordagem mais robusta
+    // Extrair hostname da URL base do worker
+    let host;
+    try {
+        // self.location deve funcionar em Web Workers modernos
+        host = self.location.hostname;
+        console.log(`[Worker] Hostname detectado via self.location: ${host}`);
+    } catch (e) {
+        console.warn("[Worker] self.location não disponível, tentando alternativa:", e);
+        // Fallback: tentar extrair do baseURI ou assumir padrão
+        try {
+            const baseURL = new URL(self.location.href || '/');
+            host = baseURL.hostname;
+            console.log(`[Worker] Hostname extraído da URL: ${host}`);
+        } catch (e2) {
+            // Último fallback: não definir wsURL, esperar pelo set_ws_url
+            console.warn("[Worker] Não foi possível detectar hostname, aguardando set_ws_url");
+            return; // Não tenta conectar agora, espera pelo set_ws_url
+        }
+    }
+    
     if (self.location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
         host = 'localhost';
     }
