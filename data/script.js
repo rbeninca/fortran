@@ -44,6 +44,9 @@ let contadorFalhasEstabilizacao = 0;
 
 // --- Funções de Inicialização ---
 window.onload = () => {
+  // Carregar configurações salvas ANTES de tudo
+  carregarConfiguracoesGrafico();
+  
   // Conectar ao worker IMEDIATAMENTE (antes de aguardar o onload completo)
   conectarWorkerRapido();
   
@@ -93,6 +96,7 @@ window.onload = () => {
         taxaAtualizacaoMs = novaValor;
         atualizarIntervaloAtualizacao();
         atualizarInfoTaxa();
+        salvarConfiguracoesGrafico(); // Salvar automaticamente
         console.log('[TAXA] Alterada para:', taxaAtualizacaoMs, 'ms');
         showNotification('info', `Taxa de atualização alterada para ${taxaAtualizacaoMs}ms (${(1000/taxaAtualizacaoMs).toFixed(1)} Hz)`);
       } else {
@@ -130,6 +134,7 @@ window.onload = () => {
       const newValue = parseInt(event.target.value);
       if (!isNaN(newValue) && newValue > 0) {
         MAX_DATA_POINTS = newValue;
+        salvarConfiguracoesGrafico(); // Salvar automaticamente
         showNotification('info', 'Número máximo de pontos atualizado para ' + MAX_DATA_POINTS + '.');
         // Optionally, trim existing data if new limit is smaller
         if (rawDataN.length > MAX_DATA_POINTS) {
@@ -379,6 +384,9 @@ function setDisplayUnit(unit) {
   document.querySelectorAll('#btn-unit-n, #btn-unit-gf, #btn-unit-kgf').forEach(b => b.classList.remove('ativo'));
   document.getElementById(`btn-unit-${unit.toLowerCase()}`).classList.add('ativo');
 
+  // Salvar configuração automaticamente
+  salvarConfiguracoesGrafico();
+
   // Re-processa os dados existentes para a nova unidade
   const newData = rawDataN.map(point => {
     return [point[0], convertForce(point[1], displayUnit)];
@@ -410,6 +418,9 @@ function setChartMode(mode) {
   document.querySelectorAll('#btn-deslizante, #btn-acumulado, #btn-pausado').forEach(b => b.classList.remove('ativo'));
   document.getElementById(`btn-${mode}`).classList.add('ativo');
   isChartPaused = (mode === 'pausado');
+  
+  // Salvar configuração automaticamente
+  salvarConfiguracoesGrafico();
   
   const maxPointsInput = document.getElementById('max-data-points-input');
   const maxPointsLabel = document.getElementById('max-data-points-label');
@@ -1289,6 +1300,7 @@ function toggleFiltroZonaMorta() {
   btn.textContent = 'Zona Morta: ' + (filtroZonaMortaAtivo ? 'ON' : 'OFF');
   btn.style.background = filtroZonaMortaAtivo ? '#27ae60' : '#95a5a6';
   atualizarStatusFiltros();
+  salvarConfiguracoesGrafico(); // Salvar automaticamente
 }
 
 function toggleArredondamentoInteligente() {
@@ -1297,6 +1309,7 @@ function toggleArredondamentoInteligente() {
   btn.textContent = 'Arredondar: ' + (arredondamentoInteligenteAtivo ? 'ON' : 'OFF');
   btn.style.background = arredondamentoInteligenteAtivo ? '#27ae60' : '#95a5a6';
   atualizarStatusFiltros();
+  salvarConfiguracoesGrafico(); // Salvar automaticamente
 }
 
 // --- Função de Debug para Zona Morta ---
@@ -1402,6 +1415,7 @@ function toggleAvisosAudio() {
   avisosAudioAtivados = document.getElementById('audio-avisos').checked;
   if (avisosAudioAtivados && audioContext?.state === 'suspended') audioContext.resume();
   showNotification('info', '🔊 Avisos sonoros ' + (avisosAudioAtivados ? 'ativados' : 'desativados'));
+  salvarConfiguracoesGrafico(); // Salvar automaticamente
 }
 
 function tocarBeep(freq = 800, dur = 100, vol = 0.2) {
@@ -3069,6 +3083,130 @@ function copiarIP(ip) {
     showNotification('Erro ao copiar URL', 'error');
   });
 }
+
+// ============================================
+// === PERSISTÊNCIA DE CONFIGURAÇÕES DO GRÁFICO ===
+// ============================================
+
+/**
+ * Salva as configurações do gráfico no localStorage
+ */
+function salvarConfiguracoesGrafico() {
+  const config = {
+    chartMode: chartMode,
+    displayUnit: displayUnit,
+    antiNoisingAtivo: antiNoisingAtivo,
+    antiNoisingMultiplier: antiNoisingMultiplier,
+    filtroZonaMortaAtivo: filtroZonaMortaAtivo,
+    arredondamentoInteligenteAtivo: arredondamentoInteligenteAtivo,
+    MAX_DATA_POINTS: MAX_DATA_POINTS,
+    avisosAudioAtivados: avisosAudioAtivados,
+    taxaAtualizacaoMs: taxaAtualizacaoMs
+  };
+  
+  try {
+    localStorage.setItem('balanca_config_grafico', JSON.stringify(config));
+    console.log('[Config] Configurações do gráfico salvas:', config);
+  } catch (e) {
+    console.error('[Config] Erro ao salvar configurações:', e);
+  }
+}
+
+/**
+ * Carrega as configurações do gráfico do localStorage
+ */
+function carregarConfiguracoesGrafico() {
+  try {
+    const configSalva = localStorage.getItem('balanca_config_grafico');
+    if (!configSalva) {
+      console.log('[Config] Nenhuma configuração salva encontrada');
+      return;
+    }
+    
+    const config = JSON.parse(configSalva);
+    console.log('[Config] Carregando configurações salvas:', config);
+    
+    // Aplicar configurações
+    if (config.chartMode !== undefined) chartMode = config.chartMode;
+    if (config.displayUnit !== undefined) displayUnit = config.displayUnit;
+    if (config.antiNoisingAtivo !== undefined) antiNoisingAtivo = config.antiNoisingAtivo;
+    if (config.antiNoisingMultiplier !== undefined) antiNoisingMultiplier = config.antiNoisingMultiplier;
+    if (config.filtroZonaMortaAtivo !== undefined) filtroZonaMortaAtivo = config.filtroZonaMortaAtivo;
+    if (config.arredondamentoInteligenteAtivo !== undefined) arredondamentoInteligenteAtivo = config.arredondamentoInteligenteAtivo;
+    if (config.MAX_DATA_POINTS !== undefined) MAX_DATA_POINTS = config.MAX_DATA_POINTS;
+    if (config.avisosAudioAtivados !== undefined) avisosAudioAtivados = config.avisosAudioAtivados;
+    if (config.taxaAtualizacaoMs !== undefined) taxaAtualizacaoMs = config.taxaAtualizacaoMs;
+    
+    // Atualizar interface para refletir as configurações carregadas
+    atualizarInterfaceConfiguracao();
+    
+    console.log('[Config] Configurações aplicadas com sucesso');
+  } catch (e) {
+    console.error('[Config] Erro ao carregar configurações:', e);
+  }
+}
+
+/**
+ * Atualiza a interface para refletir as configurações carregadas
+ */
+function atualizarInterfaceConfiguracao() {
+  // Atualizar modo do gráfico (deslizante, acumulado, pausado)
+  document.querySelectorAll('#btn-deslizante, #btn-acumulado, #btn-pausado').forEach(b => b.classList.remove('ativo'));
+  const btnModoAtual = document.getElementById(`btn-${chartMode}`);
+  if (btnModoAtual) btnModoAtual.classList.add('ativo');
+  
+  // Atualizar unidade de exibição (N, gf, kgf)
+  document.querySelectorAll('#btn-unit-n, #btn-unit-gf, #btn-unit-kgf').forEach(b => b.classList.remove('ativo'));
+  const btnUnidadeAtual = document.getElementById(`btn-unit-${displayUnit.toLowerCase()}`);
+  if (btnUnidadeAtual) btnUnidadeAtual.classList.add('ativo');
+  
+  // Atualizar botões de filtros
+  const btnZonaMorta = document.getElementById('btn-zona-morta');
+  if (btnZonaMorta) {
+    btnZonaMorta.textContent = 'Zona Morta: ' + (filtroZonaMortaAtivo ? 'ON' : 'OFF');
+    btnZonaMorta.style.background = filtroZonaMortaAtivo ? '#27ae60' : '#95a5a6';
+  }
+  
+  const btnArredondamento = document.getElementById('btn-arredondamento');
+  if (btnArredondamento) {
+    btnArredondamento.textContent = 'Arredondar: ' + (arredondamentoInteligenteAtivo ? 'ON' : 'OFF');
+    btnArredondamento.style.background = arredondamentoInteligenteAtivo ? '#27ae60' : '#95a5a6';
+  }
+  
+  // Atualizar checkbox de avisos de áudio
+  const audioCheckbox = document.getElementById('audio-avisos');
+  if (audioCheckbox) audioCheckbox.checked = avisosAudioAtivados;
+  
+  // Atualizar status dos filtros
+  atualizarStatusFiltros();
+  
+  // Atualizar taxa de atualização no input
+  const taxaInput = document.getElementById('taxa-atualizacao');
+  if (taxaInput) taxaInput.value = taxaAtualizacaoMs;
+  
+  // Atualizar MAX_DATA_POINTS no input
+  const maxPointsInput = document.getElementById('max-data-points-input');
+  if (maxPointsInput) maxPointsInput.value = MAX_DATA_POINTS;
+  
+  // Atualizar anti-noising multiplier (se existir campo)
+  const antiNoisingInput = document.getElementById('antinoising-multiplier');
+  if (antiNoisingInput) antiNoisingInput.value = antiNoisingMultiplier;
+  
+  console.log('[Config] Interface atualizada com configurações salvas');
+}
+
+// Interceptar mudanças para salvar automaticamente
+const _toggleAntiNoising = toggleAntiNoising;
+toggleAntiNoising = function() {
+  _toggleAntiNoising();
+  salvarConfiguracoesGrafico();
+};
+
+const _setAntiNoisingMultiplier = setAntiNoisingMultiplier;
+setAntiNoisingMultiplier = function(multiplier) {
+  _setAntiNoisingMultiplier(multiplier);
+  salvarConfiguracoesGrafico();
+};
 
 // Inicializa o relógio
 window.addEventListener('load', () => {
