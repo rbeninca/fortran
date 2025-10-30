@@ -599,26 +599,25 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             logging.error(f"Erro inesperado ao buscar IPv4: {e}")
             ips["ipv4"] = "Erro ao obter"
         
-        # Buscar IPv6 - tentar detectar IPv6 global do próprio servidor
+        # Buscar IPv6 público usando ifconfig.info
         try:
-            # Tentar conectar a um servidor externo para descobrir nosso IPv6
-            s = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-            s.settimeout(2)
-            # Conectar ao DNS do Google via IPv6 (não envia dados, só estabelece rota)
-            s.connect(("2001:4860:4860::8888", 80))
-            ipv6_addr = s.getsockname()[0]
-            s.close()
-            
-            # Verificar se é um endereço global válido (não link-local fe80::)
-            if ipv6_addr and not ipv6_addr.startswith('fe80:'):
-                ips["ipv6"] = ipv6_addr
-                logging.info(f"IPv6 detectado: {ips['ipv6']}")
-            else:
-                logging.info("Apenas IPv6 link-local encontrado")
-                ips["ipv6"] = "Não disponível"
+            # ifconfig.info retorna o IP de quem faz a requisição
+            with urllib.request.urlopen('https://ifconfig.info/ip', timeout=5) as response:
+                ip_response = response.read().decode('utf-8').strip()
                 
+                # Verificar se é um endereço IPv6 válido (contém ':')
+                if ':' in ip_response and not ip_response.startswith('fe80:'):
+                    ips["ipv6"] = ip_response
+                    logging.info(f"IPv6 público obtido: {ips['ipv6']}")
+                else:
+                    logging.info(f"Resposta não é IPv6: {ip_response}")
+                    ips["ipv6"] = "Não disponível"
+                    
+        except urllib.error.URLError as e:
+            logging.warning(f"Erro ao buscar IPv6 público: {e}")
+            ips["ipv6"] = "Não disponível"
         except Exception as e:
-            logging.warning(f"Erro ao detectar IPv6: {e}")
+            logging.error(f"Erro inesperado ao buscar IPv6: {e}")
             ips["ipv6"] = "Não disponível"
         
         self.send_json_response(200, ips)
