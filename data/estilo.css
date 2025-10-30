@@ -1787,3 +1787,13 @@ body.no-scroll {
     font-size: 0.875rem;
   }
 }
+/* Estilos para botões de copiar IP */
+.btn-copy:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+.btn-copy:active {
+  transform: scale(0.95);
+}
+

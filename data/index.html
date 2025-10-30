@@ -348,6 +348,30 @@
           <button onclick="salvarWsUrl()" class="btn btn-sucesso" title="Salvar URL e reconectar imediatamente ao servidor WebSocket">Salvar e Reconectar</button>
           <button onclick="resetarWsUrl()" class="btn btn-secundario" title="Restaurar URL padrão do servidor WebSocket (auto-detecta)">🔄 Restaurar Padrão</button>
         </div>
+
+        <!-- Seção de IPs Públicos -->
+        <div class="ip-publico-section" style="margin-top: 1.5rem; padding: 1rem; background: linear-gradient(135deg, var(--cor-fundo-card) 0%, rgba(59, 130, 246, 0.05) 100%); border-radius: 0.5rem; border: 1px solid var(--cor-borda);">
+          <h3 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            🌐 Endereços IP Públicos do Servidor
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div>
+              <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; font-size: 0.9rem;">IPv4 Público:</label>
+              <div id="ip-publico-v4" class="ip-value" style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span class="loading" style="color: var(--cor-texto-secundario); font-style: italic; font-size: 0.875rem;">Carregando...</span>
+              </div>
+            </div>
+            <div>
+              <label style="display: block; font-weight: 500; margin-bottom: 0.5rem; font-size: 0.9rem;">IPv6 Público:</label>
+              <div id="ip-publico-v6" class="ip-value" style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span class="loading" style="color: var(--cor-texto-secundario); font-style: italic; font-size: 0.875rem;">Não disponível</span>
+              </div>
+            </div>
+          </div>
+          <small style="color: var(--cor-texto-secundario); display: block; margin-top: 1rem; font-size: 0.85rem;">
+            💡 Esses IPs permitem que você acesse o servidor remotamente pela internet
+          </small>
+        </div>
       </div>
     </main>
 

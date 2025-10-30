@@ -376,6 +376,8 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_get_time()
         elif self.path == '/api/info':
             self.handle_get_info()
+        elif self.path == '/api/public-ips':
+            self.handle_get_public_ips()
         else:
             super().do_GET()
 
@@ -573,6 +575,44 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             ]
         }
         self.send_json_response(200, info)
+
+    def handle_get_public_ips(self):
+        """Retorna os IPs públicos (IPv4 e IPv6) do servidor"""
+        import urllib.request
+        import urllib.error
+        
+        ips = {
+            "ipv4": "Não disponível",
+            "ipv6": "Não disponível"
+        }
+        
+        # Buscar IPv4 público
+        try:
+            with urllib.request.urlopen('https://api.ipify.org?format=json', timeout=5) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                ips["ipv4"] = data.get('ip', 'Não disponível')
+                logging.info(f"IPv4 público obtido: {ips['ipv4']}")
+        except urllib.error.URLError as e:
+            logging.warning(f"Erro ao buscar IPv4 público: {e}")
+            ips["ipv4"] = "Erro ao obter"
+        except Exception as e:
+            logging.error(f"Erro inesperado ao buscar IPv4: {e}")
+            ips["ipv4"] = "Erro ao obter"
+        
+        # Buscar IPv6 público
+        try:
+            with urllib.request.urlopen('https://api6.ipify.org?format=json', timeout=5) as response:
+                data = json.loads(response.read().decode('utf-8'))
+                ips["ipv6"] = data.get('ip', 'Não disponível')
+                logging.info(f"IPv6 público obtido: {ips['ipv6']}")
+        except urllib.error.URLError as e:
+            logging.warning(f"Erro ao buscar IPv6 público (pode não estar disponível): {e}")
+            ips["ipv6"] = "Não disponível"
+        except Exception as e:
+            logging.error(f"Erro inesperado ao buscar IPv6: {e}")
+            ips["ipv6"] = "Não disponível"
+        
+        self.send_json_response(200, ips)
 
     def handle_sync_time(self):
         """Sincroniza a hora do servidor com a hora recebida do cliente"""

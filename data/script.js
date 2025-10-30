@@ -3005,6 +3005,61 @@ function closePermissionErrorModal() {
   if (modal) modal.remove();
 }
 
+// Função para buscar IPs públicos do servidor
+async function buscarIPsPublicos() {
+  const ipv4Element = document.getElementById('ip-publico-v4');
+  const ipv6Element = document.getElementById('ip-publico-v6');
+  
+  if (!ipv4Element || !ipv6Element) {
+    console.error('Elementos de IP não encontrados');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/public-ips');
+    
+    if (!response.ok) {
+      throw new Error(`Erro HTTP: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Atualiza IPv4
+    if (data.ipv4 && data.ipv4 !== 'Erro ao obter' && data.ipv4 !== 'Não disponível') {
+      ipv4Element.innerHTML = `
+        <code style="font-family: 'Courier New', monospace; background: var(--cor-fundo-card); padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid var(--cor-borda); font-weight: 600; color: var(--cor-primaria); font-size: 0.9rem;">${data.ipv4}</code>
+        <button onclick="copiarIP('${data.ipv4}')" class="btn-copy" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; cursor: pointer; background: var(--cor-primaria); color: white; border: none; border-radius: 0.25rem; transition: opacity 0.2s;" title="Copiar IPv4">📋</button>
+      `;
+    } else {
+      ipv4Element.innerHTML = `<span style="color: var(--cor-texto-secundario); font-size: 0.875rem;">${data.ipv4 || 'Não disponível'}</span>`;
+    }
+    
+    // Atualiza IPv6
+    if (data.ipv6 && data.ipv6 !== 'Erro ao obter' && data.ipv6 !== 'Não disponível') {
+      ipv6Element.innerHTML = `
+        <code style="font-family: 'Courier New', monospace; background: var(--cor-fundo-card); padding: 0.25rem 0.5rem; border-radius: 0.25rem; border: 1px solid var(--cor-borda); font-weight: 600; color: var(--cor-primaria); font-size: 0.9rem;">${data.ipv6}</code>
+        <button onclick="copiarIP('${data.ipv6}')" class="btn-copy" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; cursor: pointer; background: var(--cor-primaria); color: white; border: none; border-radius: 0.25rem; transition: opacity 0.2s;" title="Copiar IPv6">📋</button>
+      `;
+    } else {
+      ipv6Element.innerHTML = `<span style="color: var(--cor-texto-secundario); font-size: 0.875rem;">${data.ipv6 || 'Não disponível'}</span>`;
+    }
+  } catch (error) {
+    console.error('Erro ao buscar IPs públicos:', error);
+    ipv4Element.innerHTML = '<span style="color: #ef4444; font-size: 0.875rem;">Erro na conexão</span>';
+    ipv6Element.innerHTML = '<span style="color: #ef4444; font-size: 0.875rem;">Erro na conexão</span>';
+  }
+}
+
+// Função para copiar IP para área de transferência
+function copiarIP(ip) {
+  navigator.clipboard.writeText(ip).then(() => {
+    showNotification(`IP copiado: ${ip}`, 'success');
+  }).catch(err => {
+    console.error('Erro ao copiar IP:', err);
+    showNotification('Erro ao copiar IP', 'error');
+  });
+}
+
 // Inicializa o relógio
 window.addEventListener('load', () => {
   // Busca a hora inicial
@@ -3012,6 +3067,9 @@ window.addEventListener('load', () => {
 
   // Atualiza o display a cada segundo (independente de buscar do servidor)
   setInterval(updateClockDisplay, 1000);
+  
+  // Busca IPs públicos
+  buscarIPsPublicos();
   
   // Listener para fechar modal ao clicar fora dele
   const modalSobrecarga = document.getElementById('modal-alerta-sobrecarga');
