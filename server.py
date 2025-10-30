@@ -591,15 +591,18 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         
         # Verificar se o cache ainda é válido (5 minutos)
         current_time = time.time()
-        if (cached_public_ips["ipv4"] is not None and 
-            cached_public_ips["ipv6"] is not None and
-            (current_time - cached_public_ips["timestamp"]) < IP_CACHE_DURATION):
-            logging.info(f"Retornando IPs do cache (válido por mais {int(IP_CACHE_DURATION - (current_time - cached_public_ips['timestamp']))}s)")
+        cache_age = current_time - cached_public_ips["timestamp"]
+        
+        if (cache_age < IP_CACHE_DURATION and 
+            cached_public_ips["timestamp"] > 0):  # timestamp > 0 indica que já foi preenchido
+            logging.info(f"[Cache] Retornando IPs do cache (válido por mais {int(IP_CACHE_DURATION - cache_age)}s)")
             self.send_json_response(200, {
                 "ipv4": cached_public_ips["ipv4"],
                 "ipv6": cached_public_ips["ipv6"]
             })
             return
+        
+        logging.info("[Cache] Cache expirado ou vazio, buscando IPs...")
         
         ips = {
             "ipv4": "Não disponível",
