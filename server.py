@@ -29,7 +29,7 @@ SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "921600"))
 SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyUSB0")
 HTTP_PORT   = int(os.environ.get("HTTP_PORT", "80"))
 WS_PORT     = int(os.environ.get("WS_PORT", "81"))
-BIND_HOST   = os.environ.get("BIND_HOST", "0.0.0.0")  # IPv4 - Docker proxy fornece IPv6
+BIND_HOST   = os.environ.get("BIND_HOST", "")  # "" = todas interfaces (IPv4 e IPv6)
 V6ONLY_ENV  = os.environ.get("IPV6_V6ONLY", "0")
 
 # MySQL Config
@@ -754,8 +754,13 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps(data, default=str).encode('utf-8'))
 
 class DualStackTCPServer(socketserver.TCPServer):
-    address_family = socket.AF_INET  # IPv4 - Docker host mode fornece IPv6 via proxy
+    address_family = socket.AF_INET6  # IPv6 dual-stack
     allow_reuse_address = True
+    
+    def server_bind(self):
+        # Permite IPv4 e IPv6 no mesmo socket (dual-stack)
+        self.socket.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+        super().server_bind()
 
 def start_http_server():
     try:
