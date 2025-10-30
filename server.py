@@ -28,8 +28,10 @@ Binary Protocol Server - Balança GFIG (IPv4 + IPv6)
 SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "921600"))
 SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyUSB0")
 HTTP_PORT   = int(os.environ.get("HTTP_PORT", "80"))
-WS_PORT     = int(os.environ.get("WS_PORT", "81"))
-BIND_HOST   = os.environ.get("BIND_HOST", "0.0.0.0")  # IPv4
+WS_PORT_V4  = int(os.environ.get("WS_PORT", "81"))      # WebSocket IPv4
+WS_PORT_V6  = int(os.environ.get("WS_PORT_V6", "82"))  # WebSocket IPv6
+BIND_HOST_V4 = "0.0.0.0"  # IPv4
+BIND_HOST_V6 = "::"       # IPv6
 V6ONLY_ENV  = os.environ.get("IPV6_V6ONLY", "0")
 
 # MySQL Config
@@ -62,7 +64,7 @@ SIZE_CMD_GETCONF = 8
 SIZE_CMD_SETPAR = 18
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
-logging.info(f"Configuração de BIND_HOST: {BIND_HOST}")
+logging.info(f"Configuração de BIND_HOST_V4: {BIND_HOST_V4}, BIND_HOST_V6: {BIND_HOST_V6}")
 logging.info(f"Configuração de IPV6_V6ONLY: {V6ONLY_ENV}")
 logging.info(f"MySQL DB: {MYSQL_DB}")
 logging.info(f"MYSQL_DB from env: {os.environ.get('MYSQL_DB')}")
@@ -745,13 +747,14 @@ class DualStackTCPServer(socketserver.TCPServer):
 
 def start_http_server():
     try:
-        server_address = (BIND_HOST, HTTP_PORT)
+        # HTTP Server apenas em IPv4 para compatibilidade
+        server_address = (BIND_HOST_V4, HTTP_PORT)
         
         httpd = DualStackTCPServer(server_address, APIRequestHandler)
         
         t = threading.Thread(target=httpd.serve_forever, daemon=True)
         t.start()
-        logging.info(f"Servidor HTTP/API iniciado em {BIND_HOST}:{HTTP_PORT}")
+        logging.info(f"Servidor HTTP/API iniciado em {BIND_HOST_V4}:{HTTP_PORT}")
         return httpd
     except OSError as e:
         logging.error(f"Falha ao iniciar servidor HTTP: {e}", exc_info=True)
@@ -802,14 +805,39 @@ async def ws_handler(websocket):
     finally:
         CONNECTED_CLIENTS.remove(websocket)
 
-async def ws_server_main():
+async def ws_server_v4():
+    """WebSocket IPv4 na porta 81"""
     try:
-        # WebSocket simples - deixa o sistema operacional decidir IPv4/IPv6
-        async with websockets.serve(ws_handler, BIND_HOST, WS_PORT, max_size=None):
-            logging.info(f"WebSocket ativo em {BIND_HOST}:{WS_PORT}")
+        async with websockets.serve(ws_handler, BIND_HOST_V4, WS_PORT_V4, max_size=None):
+            logging.info(f"WebSocket IPv4 ativo em {BIND_HOST_V4}:{WS_PORT_V4}")
             await asyncio.Future()
     except OSError as e:
-        logging.error(f"Falha ao iniciar WebSocket: {e}", exc_info=True)
+        logging.error(f"Falha ao iniciar WebSocket IPv4: {e}", exc_info=True)
+
+async def ws_server_v6():
+    """WebSocket IPv6 na porta 82"""
+    try:
+        # Cria socket IPv6 com v6only=1 para evitar conflito
+        import socket as sock_module
+        sock = sock_module.socket(sock_module.AF_INET6, sock_module.SOCK_STREAM)
+        sock.setsockopt(sock_module.IPPROTO_IPV6, sock_module.IPV6_V6ONLY, 1)
+        sock.setsockopt(sock_module.SOL_SOCKET, sock_module.SO_REUSEADDR, 1)
+        sock.bind((BIND_HOST_V6, WS_PORT_V6))
+        
+        async with websockets.serve(ws_handler, sock=sock, max_size=None):
+            logging.info(f"WebSocket IPv6 ativo em [{BIND_HOST_V6}]:{WS_PORT_V6}")
+            await asyncio.Future()
+    except OSError as e:
+        logging.warning(f"WebSocket IPv6 não pôde ser iniciado: {e}")
+        # Não é crítico - sistema funciona só com IPv4
+
+async def ws_server_main():
+    """Inicia ambos WebSockets (IPv4 e IPv6) simultaneamente"""
+    await asyncio.gather(
+        ws_server_v4(),
+        ws_server_v6(),
+        return_exceptions=True
+    )
 
 def sanitize_for_json(obj):
     """Recursively replace NaN/Infinity with None for valid JSON serialization."""

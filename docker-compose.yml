@@ -17,6 +17,7 @@ services:
       SERIAL_PORT: /dev/ttyUSB0
       SERIAL_BAUD: '921600'
       WS_PORT: '81'
+      WS_PORT_V6: '82'
       HTTP_PORT: '80'
       MYSQL_HOST: localhost
       MYSQL_USER: balanca_user

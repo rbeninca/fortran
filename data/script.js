@@ -185,7 +185,16 @@ function setupWebSocketUrl() {
     if (location.port === '5500' || defaultHost === '127.0.0.1') {
       defaultHost = 'localhost';
     }
-    wsUrlInput.value = 'ws://' + defaultHost + ':81';
+    
+    // Detectar se é IPv6 e escolher porta apropriada
+    let wsPort = '81';  // Porta padrão IPv4
+    if (defaultHost.includes(':') && defaultHost !== '::1') {
+      // É IPv6 (exceto localhost ::1) - usar porta 82
+      wsPort = '82';
+      defaultHost = '[' + defaultHost + ']';  // IPv6 precisa de colchetes
+    }
+    
+    wsUrlInput.value = 'ws://' + defaultHost + ':' + wsPort;
   }
 }
 
@@ -855,8 +864,17 @@ function resetarWsUrl() {
   localStorage.removeItem('wsUrl');
   
   // Obtém o host padrão (hostname atual da página)
-  const defaultHost = window.location.hostname || 'localhost';
-  const defaultWsUrl = 'ws://' + defaultHost + ':81';
+  let defaultHost = window.location.hostname || 'localhost';
+  
+  // Detectar se é IPv6 e escolher porta apropriada
+  let wsPort = '81';  // Porta padrão IPv4
+  if (defaultHost.includes(':') && defaultHost !== '::1') {
+    // É IPv6 (exceto localhost ::1) - usar porta 82
+    wsPort = '82';
+    defaultHost = '[' + defaultHost + ']';  // IPv6 precisa de colchetes
+  }
+  
+  const defaultWsUrl = 'ws://' + defaultHost + ':' + wsPort;
   
   // Atualiza o campo de input
   const wsUrlInput = document.getElementById('ws-url');
