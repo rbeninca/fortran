@@ -599,17 +599,35 @@ class APIRequestHandler(http.server.SimpleHTTPRequestHandler):
             logging.error(f"Erro inesperado ao buscar IPv4: {e}")
             ips["ipv4"] = "Erro ao obter"
         
-        # Buscar IPv6 público
+        # Buscar IPv6 local (da própria máquina)
         try:
-            with urllib.request.urlopen('https://api6.ipify.org?format=json', timeout=5) as response:
-                data = json.loads(response.read().decode('utf-8'))
-                ips["ipv6"] = data.get('ip', 'Não disponível')
-                logging.info(f"IPv6 público obtido: {ips['ipv6']}")
-        except urllib.error.URLError as e:
-            logging.warning(f"Erro ao buscar IPv6 público (pode não estar disponível): {e}")
-            ips["ipv6"] = "Não disponível"
+            import subprocess
+            # Pegar IPv6 global da interface principal (não link-local)
+            result = subprocess.run(
+                ["ip", "-6", "addr", "show", "scope", "global"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            
+            if result.returncode == 0:
+                # Procurar por endereço IPv6 global (não temporary)
+                import re
+                ipv6_matches = re.findall(r'inet6 ([0-9a-f:]+)/\d+', result.stdout)
+                
+                if ipv6_matches:
+                    # Pegar o primeiro IPv6 global encontrado
+                    ips["ipv6"] = ipv6_matches[0]
+                    logging.info(f"IPv6 local obtido: {ips['ipv6']}")
+                else:
+                    logging.info("Nenhum IPv6 global encontrado")
+                    ips["ipv6"] = "Não disponível"
+            else:
+                logging.warning("Comando 'ip -6 addr' falhou")
+                ips["ipv6"] = "Não disponível"
+                
         except Exception as e:
-            logging.error(f"Erro inesperado ao buscar IPv6: {e}")
+            logging.warning(f"Erro ao buscar IPv6 local: {e}")
             ips["ipv6"] = "Não disponível"
         
         self.send_json_response(200, ips)
