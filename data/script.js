@@ -44,6 +44,39 @@ let contadorFalhasEstabilizacao = 0;
 
 // --- Funções de Inicialização ---
 window.onload = () => {
+  // Detecta se está em GitHub Pages e desabilita recursos do servidor
+  if (location.hostname.includes('github.io')) {
+    console.log("[UI] ℹ️ GitHub Pages detectado - modo de visualização apenas");
+    // Mostra notificação de modo offline
+    showNotification('info', '📖 Modo Visualização - Aplicação em GitHub Pages sem acesso ao servidor local');
+    
+    // Desabilita elementos que dependem do servidor
+    const elementosDesabilitados = [
+      'param-conversao', 'param-gravidade', 'param-offset',
+      'param-leituras-estaveis', 'param-tolerancia', 'param-num-amostras',
+      'param-timeout', 'taxa-atualizacao', 'param-capacidade-maxima',
+      'param-acuracia', 'anti-noising-multiplier', 'nome-sessao',
+      'btn-iniciar-sessao', 'btn-encerrar-sessao', 'ws-url'
+    ];
+    
+    elementosDesabilitados.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = true;
+    });
+    
+    // Desabilita botões de ação
+    const botoesDesabilitados = [
+      'btn-toggle-labels', 'btn-toggle-display-mode', 'btn-toggle-grid',
+      'btn-set-smooth-line', 'btn-set-straight-line', 'btn-toggle-fullscreen',
+      'btn-anti-noising', 'btn-zona-morta', 'btn-arredondamento'
+    ];
+    
+    botoesDesabilitados.forEach(id => {
+      const el = document.querySelector(`#${id}`) || document.querySelector(`button[onclick*="${id}"]`);
+      if (el) el.disabled = true;
+    });
+  }
+  
   // Conectar ao worker IMEDIATAMENTE (antes de aguardar o onload completo)
   conectarWorkerRapido();
   
@@ -477,18 +510,21 @@ function conectarWorkerRapido() {
       dataWorker = new Worker('dataWorker.js');
       dataWorker.onmessage = handleWorkerMessage;
       
-      // Envia a URL do WebSocket IMEDIATAMENTE
-      const savedWsUrl = localStorage.getItem('wsUrl');
-      if (savedWsUrl) {
-        dataWorker.postMessage({ type: 'set_ws_url', payload: { url: savedWsUrl } });
-      } else {
-        // Construir URL padrão mesmo sem localStorage (acelera primeira conexão)
-        let defaultHost = location.hostname;
-        if (location.port === '5500' || defaultHost === '127.0.0.1') {
-          defaultHost = 'localhost';
+      // Se está em GitHub Pages, não envia URL (worker vai ignorar conexão)
+      if (!location.hostname.includes('github.io')) {
+        // Envia a URL do WebSocket IMEDIATAMENTE
+        const savedWsUrl = localStorage.getItem('wsUrl');
+        if (savedWsUrl) {
+          dataWorker.postMessage({ type: 'set_ws_url', payload: { url: savedWsUrl } });
+        } else {
+          // Construir URL padrão mesmo sem localStorage (acelera primeira conexão)
+          let defaultHost = location.hostname;
+          if (location.port === '5500' || defaultHost === '127.0.0.1') {
+            defaultHost = 'localhost';
+          }
+          const defaultUrl = 'ws://' + defaultHost + ':81';
+          dataWorker.postMessage({ type: 'set_ws_url', payload: { url: defaultUrl } });
         }
-        const defaultUrl = 'ws://' + defaultHost + ':81';
-        dataWorker.postMessage({ type: 'set_ws_url', payload: { url: defaultUrl } });
       }
       
       // OTIMIZAÇÃO: Taxa de atualização mais rápida e agressiva na inicialização
@@ -728,6 +764,15 @@ function processChartUpdates() {
 function updateConnectionStatus(isConnected) {
   const indicator = document.getElementById('ws-indicator');
   const text = document.getElementById('ws-text');
+  
+  // Não atualiza status em GitHub Pages (mantém indicador desabilitado)
+  if (location.hostname.includes('github.io')) {
+    if (text) text.textContent = 'GitHub Pages - Modo Offline';
+    if (indicator) indicator.title = 'Sem acesso ao servidor (GitHub Pages)';
+    document.body.classList.add('desconectado');
+    return;
+  }
+  
   document.body.classList.toggle('desconectado', !isConnected);
   indicator.classList.toggle('conectado', isConnected);
   indicator.title = isConnected ? 'Conectado' : 'Desconectado';

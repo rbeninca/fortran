@@ -31,6 +31,16 @@ let rpsAtual = 0;
 // OTIMIZAÇÃO: Tentar conexão imediatamente com URL padrão
 // Não espera por set_ws_url, o que acelera muito a primeira conexão
 (() => {
+    // Detecta se está sendo executado via GitHub Pages
+    const isGitHubPages = location.hostname.includes('github.io');
+    
+    if (isGitHubPages) {
+        console.log("[Worker] ℹ️ GitHub Pages detectado - WebSocket desabilitado (modo de visualização apenas)");
+        wsURL = '';
+        // Não tenta conectar ao servidor
+        return;
+    }
+    
     console.log("[Worker] 🚀 Tentando conexão rápida com URL padrão...");
     let host = location.hostname;
     if (location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
@@ -46,6 +56,12 @@ let rpsAtual = 0;
  * Conecta ao servidor WebSocket do Host (Raspberry Pi/PC).
  */
 function connectWebSocket() {
+    // Verifica se está em GitHub Pages - não tenta conectar
+    if (location.hostname.includes('github.io')) {
+        console.log("[Worker] ℹ️ GitHub Pages detectado - ignorando tentativa de conexão");
+        return;
+    }
+    
     // Evita criar múltiplas conexões se uma já estiver ativa ou tentando conectar.
     if (socket && socket.readyState !== WebSocket.CLOSED) {
         console.log(`[Worker] Socket já existe. Estado: ${socket.readyState}`);
@@ -499,6 +515,11 @@ self.onmessage = (e) => {
  * OTIMIZADO: Reduzido de 5s para 1s para conexão mais rápida e responsiva.
  */
 setInterval(() => {
+    // Não tenta reconectar em GitHub Pages
+    if (location.hostname.includes('github.io')) {
+        return;
+    }
+    
     if (socket == null || socket.readyState === WebSocket.CLOSED) {
         console.log("[Worker] 🔄 Tentando reconectar ao WebSocket do Host...");
         connectWebSocket();
