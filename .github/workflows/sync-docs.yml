@@ -1,0 +1,57 @@
+name: Sync docs/ from data/ (GitHub Pages)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'data/**'
+  workflow_dispatch:
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Make sync script executable
+        run: chmod +x scripts/sync-docs.sh
+      
+      - name: Sync data/ to docs/
+        run: ./scripts/sync-docs.sh
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet docs/; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  Nenhuma mudança detectada em docs/"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "✅ Mudanças detectadas em docs/"
+          fi
+      
+      - name: Commit and push if changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git add docs/
+          git commit -m "chore: auto-sync docs/ from data/ [skip ci]"
+          git push
+      
+      - name: Summary
+        run: |
+          echo "## 📦 Sincronização docs/ concluída" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_changes.outputs.has_changes }}" == "true" ]; then
+            echo "✅ Arquivos sincronizados e enviados para o repositório" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️  Nenhuma mudança necessária" >> $GITHUB_STEP_SUMMARY
+          fi

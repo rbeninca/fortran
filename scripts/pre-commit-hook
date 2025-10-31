@@ -1,0 +1,30 @@
+#!/bin/bash
+# Git Hook - Pre-commit
+# Sincroniza automaticamente data/ → docs/ quando há mudanças em data/
+
+# Verifica se houve mudanças em data/
+if git diff --cached --name-only | grep -q "^data/"; then
+    echo ""
+    echo "🔄 Detectadas mudanças em data/, sincronizando para docs/..."
+    echo ""
+    
+    # Executa script de sincronização
+    if [ -f "scripts/sync-docs.sh" ]; then
+        ./scripts/sync-docs.sh
+        
+        # Adiciona arquivos atualizados ao commit atual
+        git add docs/
+        
+        echo ""
+        echo "✅ docs/ sincronizado e adicionado ao commit automaticamente"
+        echo ""
+    else
+        echo "⚠️  Script scripts/sync-docs.sh não encontrado!"
+        echo "   Execute manualmente: cp -r data/* docs/"
+        echo ""
+        exit 1
+    fi
+fi
+
+# Continua com o commit
+exit 0
