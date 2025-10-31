@@ -65,9 +65,15 @@ let rpsAtual = 0;
  * Conecta ao servidor WebSocket do Host (Raspberry Pi/PC).
  */
 function connectWebSocket() {
-    // Verifica se está em GitHub Pages - não tenta conectar
+    // ⚠️ IMPORTANTE: GitHub Pages não pode conectar a servidor local!
+    // Detecta se está em GitHub Pages e ignora completamente
     if (location.hostname.includes('github.io')) {
-        console.log("[Worker] ℹ️ GitHub Pages detectado - ignorando tentativa de conexão");
+        console.log("[Worker] ℹ️ GitHub Pages detectado - WebSocket desabilitado (sem servidor para conectar)");
+        self.postMessage({ 
+            type: 'status', 
+            status: 'offline', 
+            message: 'Modo Visualização (GitHub Pages) - sem acesso ao servidor local'
+        });
         return;
     }
     
@@ -119,8 +125,21 @@ function connectWebSocket() {
     try {
         socket = new WebSocket(finalWsURL);
     } catch (e) {
-        console.error("[Worker] ❌ Erro ao criar WebSocket:", e);
-        self.postMessage({ type: 'status', status: 'error', message: 'URL de WebSocket inválida: ' + e.message });
+        console.error("[Worker] ❌ Erro ao criar WebSocket:", e.message);
+        // Verifica se é erro de HTTPS/WSS
+        if (e.message.includes('insecure') || e.message.includes('secure')) {
+            self.postMessage({ 
+                type: 'status', 
+                status: 'error', 
+                message: '🔒 Conexão insegura: O servidor deve usar HTTPS/WSS quando a página é HTTPS'
+            });
+        } else {
+            self.postMessage({ 
+                type: 'status', 
+                status: 'error', 
+                message: 'Erro WebSocket: ' + e.message 
+            });
+        }
         return;
     }
 
