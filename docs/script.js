@@ -213,7 +213,9 @@ function setupWebSocketUrl() {
     if (location.port === '5500' || defaultHost === '127.0.0.1') {
       defaultHost = 'localhost';
     }
-    wsUrlInput.value = 'ws://' + defaultHost + ':81';
+    // Usa protocolo correto: ws:// para HTTP, wss:// para HTTPS
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    wsUrlInput.value = protocol + '://' + defaultHost + ':81';
   }
 }
 
@@ -275,7 +277,9 @@ function parseUrlLike(urlStr) {
   try {
     let u = urlStr.trim();
     if (!u.startsWith('ws://') && !u.startsWith('wss://') && !u.startsWith('http')) {
-      u = 'ws://' + u;
+      // Detecta protocolo correto: wss:// para HTTPS, ws:// para HTTP
+      const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+      u = protocol + '://' + u;
     }
     const url = new URL(u);
     return { protocol: url.protocol, host: url.hostname, port: url.port };
@@ -522,7 +526,9 @@ function conectarWorkerRapido() {
           if (location.port === '5500' || defaultHost === '127.0.0.1') {
             defaultHost = 'localhost';
           }
-          const defaultUrl = 'ws://' + defaultHost + ':81';
+          // Usa protocolo correto: ws:// para HTTP, wss:// para HTTPS
+          const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+          const defaultUrl = protocol + '://' + defaultHost + ':81';
           dataWorker.postMessage({ type: 'set_ws_url', payload: { url: defaultUrl } });
         }
       }
@@ -890,7 +896,9 @@ function resetarWsUrl() {
   
   // Obtém o host padrão (hostname atual da página)
   const defaultHost = window.location.hostname || 'localhost';
-  const defaultWsUrl = 'ws://' + defaultHost + ':81';
+  // Usa protocolo correto: ws:// para HTTP, wss:// para HTTPS
+  const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const defaultWsUrl = protocol + '://' + defaultHost + ':81';
   
   // Atualiza o campo de input
   const wsUrlInput = document.getElementById('ws-url');

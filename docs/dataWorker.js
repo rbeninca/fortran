@@ -12,6 +12,15 @@ let wsURL = ''; // NOVO: Variável para armazenar a URL do WebSocket
 // NOVO: Buffer para mensagens parciais do WebSocket
 let messageBuffer = "";
 
+/**
+ * Constrói URL WebSocket correta baseado no protocolo atual (HTTP vs HTTPS)
+ * HTTP → ws://, HTTPS → wss://
+ */
+function buildWebSocketURL(host, port = 81) {
+    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${protocol}://${host}:${port}`;
+}
+
 // --- Reconexão automática ---
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
@@ -46,7 +55,7 @@ let rpsAtual = 0;
     if (location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
         host = 'localhost';
     }
-    wsURL = `ws://${host}:81`;
+    wsURL = buildWebSocketURL(host, 81);
     console.log(`[Worker] URL padrão definida: ${wsURL}`);
     // Agenda a conexão para o próximo tick (permite que o worker.onmessage esteja pronto)
     setTimeout(() => connectWebSocket(), 10);
@@ -80,14 +89,16 @@ function connectWebSocket() {
         if (location.port === '5500' || host === 'localhost' || host === '127.0.0.1') {
             host = 'localhost';
         }
-        finalWsURL = `ws://${host}:${port}`;
+        finalWsURL = buildWebSocketURL(host, port);
         console.log(`[Worker] Constructed default WebSocket URL: ${finalWsURL}`);
     } else {
         // Ensure the URL has a protocol and port if missing
         let givenUrl = finalWsURL.trim();
 
+        // Se tem protocolo ws: ou wss:, usa como está. Senão, detecta o protocolo correto
         if (!givenUrl.startsWith('ws://') && !givenUrl.startsWith('wss://')) {
-            givenUrl = `ws://${givenUrl}`;
+            const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+            givenUrl = `${protocol}://${givenUrl}`;
         }
 
         const lastColon = givenUrl.lastIndexOf(':');
